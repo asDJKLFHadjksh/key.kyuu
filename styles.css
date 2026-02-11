@@ -1,11 +1,15 @@
 :root {
-  --bg: #0b0d1a;
-  --bg-soft: #12162b;
-  --text: #f4f6ff;
-  --muted: #b8bfd6;
-  --line: #2a3155;
-  --accent: #8a5cff;
-  --accent-2: #f0b429;
+  --bg: #0c1020;
+  --bg-top: #121733;
+  --surface: #1a1f2e;
+  --surface-2: #141a2a;
+  --text: #f5f7ff;
+  --muted: #b5bdd8;
+  --line: #2b3353;
+  --line-strong: #3a4370;
+  --accent: #7f4dff;
+  --accent-hover: #6f3ff2;
+  --accent-2: #f0c23b;
   --danger: #ff6b8a;
 }
 
@@ -18,7 +22,7 @@ body {
   min-height: 100vh;
   font-family: 'Segoe UI', Inter, system-ui, -apple-system, sans-serif;
   color: var(--text);
-  background: radial-gradient(circle at top, #1a1f3d 0%, var(--bg) 55%), var(--bg);
+  background: radial-gradient(circle at top, var(--bg-top) 0%, var(--bg) 58%), var(--bg);
 }
 
 .page {
@@ -30,11 +34,11 @@ body {
 
 .card {
   width: min(520px, 100%);
-  background: linear-gradient(165deg, rgba(22, 26, 48, 0.96), rgba(12, 14, 28, 0.96));
+  background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 20px;
+  border-radius: 16px;
   padding: 2rem;
-  box-shadow: 0 20px 55px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(138, 92, 255, 0.12) inset;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.35);
 }
 
 .eyebrow {
@@ -70,9 +74,9 @@ h1 {
 
 input {
   width: 100%;
-  border-radius: 12px;
-  border: 1px solid #3a4475;
-  background: rgba(11, 14, 30, 0.9);
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-2);
   color: var(--text);
   padding: 0.85rem 1rem;
   font-size: 1rem;
@@ -83,7 +87,7 @@ input {
 input:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(138, 92, 255, 0.24);
+  box-shadow: 0 0 0 2px rgba(127, 77, 255, 0.25);
 }
 
 button,
@@ -92,20 +96,20 @@ button,
   align-items: center;
   justify-content: center;
   text-decoration: none;
-  border: 0;
-  border-radius: 12px;
+  border: 1px solid #6942d9;
+  border-radius: 10px;
   padding: 0.8rem 1rem;
-  background: linear-gradient(90deg, var(--accent), #6d45e6);
-  color: white;
+  background: var(--accent);
+  color: #ffffff;
   font-weight: 700;
   cursor: pointer;
-  transition: transform 0.2s ease, filter 0.2s ease;
+  transition: transform 0.15s ease, background-color 0.15s ease;
 }
 
 button:hover,
 .social-btn:hover {
   transform: translateY(-1px);
-  filter: brightness(1.07);
+  background: var(--accent-hover);
 }
 
 .message {
