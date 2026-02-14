@@ -365,9 +365,11 @@
         const printable = filterPrintable(text);
         if (!printable) return;
 
-        code[caretIndex] = printable.slice(-1);
-        if (caretIndex < MAX_DIGITS - 1) {
-          caretIndex += 1;
+        for (const ch of printable) {
+          code[caretIndex] = ch;
+          if (caretIndex < MAX_DIGITS - 1) {
+            caretIndex += 1;
+          }
         }
       }
 
@@ -505,6 +507,10 @@
         }
 
         if (event.inputType === 'insertText') {
+          event.preventDefault();
+          handledByBeforeInput = true;
+          writeTextAtCaret(event.data || '');
+          commitSlotState();
           return;
         }
 
