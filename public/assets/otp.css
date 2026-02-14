@@ -153,3 +153,28 @@
   height: 2px;
   left: -9999px;
 }
+
+.action-col {
+  display: grid;
+  justify-items: center;
+  gap: 0.45rem;
+}
+
+.clear-code-link {
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.84rem;
+  padding: 0;
+  line-height: 1.1;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.clear-code-link:hover,
+.clear-code-link:focus-visible {
+  color: rgba(255, 255, 255, 0.9);
+  transform: none;
+}
