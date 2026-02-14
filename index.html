@@ -246,9 +246,8 @@
         class="real-input"
         type="text"
         inputmode="text"
-        pattern="[A-Za-z0-9]*"
         autocomplete="one-time-code"
-        autocapitalize="characters"
+        autocapitalize="off"
         spellcheck="false"
         aria-describedby="status"
       />
@@ -276,6 +275,7 @@
       let isVerifying = false;
       let pingPongTimer = null;
       let handledByBeforeInput = false;
+      let isComposing = false;
 
       const boxes = [];
       const digitsEls = [];
@@ -322,7 +322,6 @@
             hoverIndex = null;
             caretIndex = i;
             focusInput();
-            syncHiddenInput();
             render();
           });
 
@@ -346,28 +345,27 @@
         hiddenInput.focus({ preventScroll: true });
       }
 
-      function syncHiddenInput() {
-        hiddenInput.value = code.join('');
+      function clearCaptureInput() {
+        hiddenInput.value = '';
       }
 
-      function sanitizeAll(str) {
-        return (str || '')
-          .replace(/[-\s]/g, '')
-          .replace(/[^a-zA-Z0-9]/g, '')
-          .toUpperCase()
-          .slice(0, MAX_DIGITS);
+      function isPrintableChar(char) {
+        return !/[\u0000-\u001F\u007F]/.test(char);
+      }
+
+      function filterPrintable(text) {
+        return Array.from(text || '').filter(isPrintableChar).join('');
       }
 
       function clampCaret(index) {
         return Math.max(0, Math.min(index, MAX_DIGITS - 1));
       }
 
+      function writeTextAtCaret(text) {
+        const printable = filterPrintable(text);
+        if (!printable) return;
 
-      function writeCharsAtCaret(chars) {
-        const sanitized = (chars || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-        if (!sanitized) return;
-
-        for (const ch of sanitized) {
+        for (const ch of printable) {
           code[caretIndex] = ch;
           if (caretIndex < MAX_DIGITS - 1) {
             caretIndex += 1;
@@ -387,7 +385,7 @@
       }
 
       function commitSlotState() {
-        syncHiddenInput();
+        clearCaptureInput();
         render();
       }
 
@@ -400,7 +398,7 @@
       // ---------- input handling ----------
       hiddenInput.addEventListener('focus', () => {
         inputFocused = true;
-        syncHiddenInput();
+        clearCaptureInput();
         render();
       });
 
@@ -408,6 +406,20 @@
         inputFocused = false;
         hoverIndex = null;
         render();
+      });
+
+      hiddenInput.addEventListener('compositionstart', () => {
+        if (isVerifying) return;
+        isComposing = true;
+        hasUserInteracted = true;
+      });
+
+      hiddenInput.addEventListener('compositionend', (event) => {
+        if (isVerifying) return;
+        hasUserInteracted = true;
+        isComposing = false;
+        writeTextAtCaret(event.data || hiddenInput.value);
+        commitSlotState();
       });
 
       hiddenInput.addEventListener('keydown', (event) => {
@@ -452,15 +464,18 @@
           return;
         }
 
+        if (event.key === 'Backspace') {
+          event.preventDefault();
+          clearAtBackspace();
+          commitSlotState();
+          return;
+        }
+
         if (event.key === 'Delete') {
           event.preventDefault();
           clearAtDelete();
           commitSlotState();
           return;
-        }
-
-        if (event.key.length === 1 && !/^[a-zA-Z0-9]$/.test(event.key)) {
-          event.preventDefault();
         }
       });
 
@@ -473,15 +488,17 @@
         hasUserInteracted = true;
         handledByBeforeInput = false;
 
-        if (event.inputType === 'insertText') {
-          const data = event.data || '';
-          if (!/^[a-zA-Z0-9]+$/.test(data)) {
+        if (isComposing) {
+          if (event.inputType.startsWith('insert')) {
             event.preventDefault();
-            return;
           }
+          return;
+        }
+
+        if (event.inputType === 'insertText') {
           event.preventDefault();
           handledByBeforeInput = true;
-          writeCharsAtCaret(data);
+          writeTextAtCaret(event.data || '');
           commitSlotState();
           return;
         }
@@ -501,21 +518,42 @@
           commitSlotState();
           return;
         }
+
+        if (event.inputType === 'insertFromPaste') {
+          event.preventDefault();
+          handledByBeforeInput = true;
+          clearCaptureInput();
+        }
       });
 
-      hiddenInput.addEventListener('input', () => {
-        if (handledByBeforeInput) {
-          handledByBeforeInput = false;
+      hiddenInput.addEventListener('input', (event) => {
+        if (isVerifying) {
+          clearCaptureInput();
           return;
         }
 
-        const v = sanitizeAll(hiddenInput.value);
-        code = Array(MAX_DIGITS).fill('');
-        for (let i = 0; i < v.length; i += 1) code[i] = v[i];
+        if (handledByBeforeInput) {
+          handledByBeforeInput = false;
+          clearCaptureInput();
+          return;
+        }
 
-        caretIndex = Math.min(v.length, MAX_DIGITS - 1);
-        hiddenInput.value = code.join('');
-        render();
+        hasUserInteracted = true;
+
+        if (event.inputType === 'deleteContentBackward') {
+          clearAtBackspace();
+          commitSlotState();
+          return;
+        }
+
+        if (event.inputType === 'deleteContentForward') {
+          clearAtDelete();
+          commitSlotState();
+          return;
+        }
+
+        writeTextAtCaret(hiddenInput.value);
+        commitSlotState();
       });
 
       // ---------- paste sanitization ----------
@@ -523,9 +561,7 @@
         if (isVerifying) return;
         event.preventDefault();
         hasUserInteracted = true;
-
-        const text = event.clipboardData?.getData('text') || '';
-        writeCharsAtCaret(text);
+        writeTextAtCaret(event.clipboardData?.getData('text') || '');
         commitSlotState();
       });
 
@@ -538,7 +574,6 @@
           caretIndex = nextEmptyIndex();
         }
         focusInput();
-        syncHiddenInput();
         render();
       });
 
@@ -631,7 +666,7 @@
       createBoxes();
       render();
       runIntroAnimation();
-      syncHiddenInput();
+      clearCaptureInput();
     </script>
   </body>
 </html>
