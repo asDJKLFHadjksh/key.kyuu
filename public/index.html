@@ -10,6 +10,7 @@
         --panel: #1b1b1b;
         --fg: #ffffff;
         --accent: #8a4eff;
+        --danger: #ff3b3b;
       }
 
       * {
@@ -125,6 +126,14 @@
         animation: boxOut 150ms cubic-bezier(0.4, 0, 1, 1) both;
       }
 
+      .char-box.verifying-active {
+        animation: rotatePulse 260ms ease-in-out both;
+      }
+
+      .char-box.verifying-active .char-box-char {
+        animation: counterPulse 260ms ease-in-out both;
+      }
+
       .char-box.pulse,
       .char-box.intro {
         animation: rotatePulse 360ms ease-in-out both;
@@ -196,6 +205,22 @@
       .field-shell.complete {
         border-color: var(--accent);
         box-shadow: 0 0 0 1px rgba(138, 78, 255, 0.25), 0 0 16px rgba(138, 78, 255, 0.24);
+      }
+
+      .field-shell.error {
+        border-color: var(--danger);
+        box-shadow: 0 0 0 1px rgba(255, 59, 59, 0.28), 0 0 16px rgba(255, 59, 59, 0.2);
+      }
+
+      .char-box.error {
+        border-color: var(--danger);
+        box-shadow: 0 0 0 1px rgba(255, 59, 59, 0.2);
+      }
+
+      .char-box.warning-empty {
+        border-color: var(--danger);
+        background: rgba(255, 59, 59, 0.18);
+        box-shadow: 0 0 0 1px rgba(255, 59, 59, 0.2);
       }
 
       .field {
@@ -333,33 +358,76 @@
       const boxStrip = document.getElementById('boxStrip');
       const boxEls = Array.from(boxStrip.querySelectorAll('.char-box'));
 
-      // state
+      // state (raw/prevRaw/timers)
       let rawCode = '';
+      let prevRaw = '';
       let isSubmitting = false;
       let introRunning = true;
+      let isClearing = false;
+      let verifyingInterval = null;
+      const pendingTimeouts = new Set();
 
-      // sanitize
+      const VERIFY_STEP_MS = 100;
+      const CLEAR_STAGGER_MS = 50;
+      const VERIFY_SEQUENCE = [...Array(MAX_LEN).keys(), ...Array(MAX_LEN).keys()].map((_, idx) =>
+        idx < MAX_LEN ? idx : (MAX_LEN - 1) - (idx - MAX_LEN)
+      );
+
+      function scheduleTimeout(callback, delay) {
+        const id = window.setTimeout(() => {
+          pendingTimeouts.delete(id);
+          callback();
+        }, delay);
+        pendingTimeouts.add(id);
+        return id;
+      }
+
+      function clearPendingTimeouts() {
+        pendingTimeouts.forEach((id) => window.clearTimeout(id));
+        pendingTimeouts.clear();
+      }
+
+      function wait(delay) {
+        return new Promise((resolve) => {
+          scheduleTimeout(resolve, delay);
+        });
+      }
+
+      // sanitize+limit
       function sanitizeRaw(value) {
         return String(value || '').replace(/[-\s]/g, '').slice(0, MAX_LEN);
+      }
+
+      function clearTransientBoxClasses(box) {
+        box.classList.remove('anim-in', 'anim-out', 'pulse', 'intro', 'verifying-active', 'warning-empty');
+        box.style.removeProperty('--pulse-delay');
       }
 
       // render
       function applyFieldState(nextRaw = rawCode) {
         const length = nextRaw.length;
-        fieldShell.classList.toggle('complete', length === MAX_LEN);
-        clearBtn.disabled = length === 0 || isSubmitting;
-        submitBtn.disabled = isSubmitting;
+        fieldShell.classList.toggle('complete', length === MAX_LEN && !fieldShell.classList.contains('error'));
+        codeInput.disabled = isSubmitting || introRunning || isClearing;
+        clearBtn.disabled = length === 0 || isSubmitting || introRunning || isClearing;
+        submitBtn.disabled = isSubmitting || introRunning || isClearing;
       }
 
-      function render(raw) {
+      function instantRender(raw = rawCode) {
         for (let i = 0; i < MAX_LEN; i += 1) {
           const box = boxEls[i];
           const charEl = box.querySelector('.char-box-char');
           const char = raw[i] || '';
+          clearTransientBoxClasses(box);
           charEl.textContent = char;
           box.classList.toggle('filled', Boolean(char));
         }
         applyFieldState(raw);
+      }
+
+      function removeErrorStyles() {
+        fieldShell.classList.remove('error');
+        boxEls.forEach((box) => box.classList.remove('error'));
+        applyFieldState(rawCode);
       }
 
       // animateIn
@@ -369,12 +437,14 @@
         box.classList.remove('anim-in');
         void box.offsetWidth;
         box.classList.add('anim-in');
+        box.addEventListener('animationend', () => box.classList.remove('anim-in'), { once: true });
       }
 
       // animateOut
-      function animateOut(slotIndex, char, duration = 150) {
+      function animateOut(slotIndex, char = '') {
         const box = boxEls[slotIndex];
-        if (!box) return;
+        if (!box) return Promise.resolve();
+
         const charEl = box.querySelector('.char-box-char');
         charEl.textContent = char;
         box.classList.add('filled');
@@ -382,11 +452,17 @@
         void box.offsetWidth;
         box.classList.add('anim-out');
 
-        window.setTimeout(() => {
-          if (rawCode[slotIndex]) return;
-          charEl.textContent = '';
-          box.classList.remove('filled', 'anim-out');
-        }, duration);
+        return new Promise((resolve) => {
+          const cleanup = () => {
+            box.classList.remove('anim-out');
+            if (!rawCode[slotIndex]) {
+              charEl.textContent = '';
+              box.classList.remove('filled');
+            }
+            resolve();
+          };
+          box.addEventListener('animationend', cleanup, { once: true });
+        });
       }
 
       // completePulse
@@ -428,72 +504,139 @@
         }, ((MAX_LEN - 1) * stagger) + pulseDuration + 20);
       }
 
-      function syncRaw(nextRaw, mode = 'instant', meta = {}) {
-        const prevRaw = rawCode;
-        rawCode = nextRaw;
-        render(rawCode);
+      function stopVerifying() {
+        if (verifyingInterval) {
+          window.clearInterval(verifyingInterval);
+          verifyingInterval = null;
+        }
+        boxEls.forEach((box) => box.classList.remove('verifying-active'));
+      }
 
-        if (mode === 'append' && typeof meta.index === 'number') {
-          animateIn(meta.index);
-        } else if (mode === 'delete' && typeof meta.index === 'number') {
-          animateOut(meta.index, meta.char || '');
-        } else if (mode === 'clear') {
-          for (let i = 0; i < prevRaw.length; i += 1) {
-            animateOut(i, prevRaw[i], 120);
-          }
+      // startVerifying/stopVerifying
+      function startVerifying() {
+        stopVerifying();
+        let step = 0;
+        verifyingInterval = window.setInterval(() => {
+          const index = VERIFY_SEQUENCE[step % VERIFY_SEQUENCE.length];
+          const box = boxEls[index];
+          if (!box) return;
+          box.classList.remove('verifying-active');
+          void box.offsetWidth;
+          box.classList.add('verifying-active');
+          step += 1;
+        }, VERIFY_STEP_MS);
+      }
+
+      async function warningIncomplete() {
+        const start = rawCode.length;
+        for (let i = start; i < MAX_LEN; i += 1) {
+          scheduleTimeout(() => {
+            const box = boxEls[i];
+            box.classList.add('warning-empty');
+            box.classList.remove('verifying-active');
+            void box.offsetWidth;
+            box.classList.add('verifying-active');
+          }, (i - start) * 38);
         }
 
-        if (prevRaw.length !== MAX_LEN && rawCode.length === MAX_LEN) {
-          completePulse();
+        await wait(((MAX_LEN - start) * 38) + 320);
+        for (let i = start; i < MAX_LEN; i += 1) {
+          const box = boxEls[i];
+          box.classList.remove('warning-empty', 'verifying-active');
         }
       }
 
-      codeInput.addEventListener('beforeinput', (event) => {
-        if (isSubmitting || introRunning) {
-          event.preventDefault();
-          return;
+      async function clearFromEndToStart() {
+        const snapshot = rawCode;
+        if (!snapshot.length) return;
+
+        isClearing = true;
+        applyFieldState(snapshot);
+
+        const tasks = [];
+        for (let i = snapshot.length - 1; i >= 0; i -= 1) {
+          tasks.push(new Promise((resolve) => {
+            scheduleTimeout(async () => {
+              rawCode = rawCode.slice(0, i);
+              prevRaw = rawCode;
+              await animateOut(i, snapshot[i]);
+              resolve();
+            }, (snapshot.length - 1 - i) * CLEAR_STAGGER_MS);
+          }));
         }
 
-        if ((event.inputType || '').startsWith('delete')) return;
+        await Promise.all(tasks);
+        rawCode = '';
+        prevRaw = '';
+        codeInput.value = '';
+        instantRender('');
+        isClearing = false;
+        applyFieldState('');
+      }
 
-        const selectionStart = codeInput.selectionStart ?? codeInput.value.length;
-        const selectionEnd = codeInput.selectionEnd ?? selectionStart;
-        const currentRaw = sanitizeRaw(codeInput.value);
-        const selectedRaw = sanitizeRaw(codeInput.value.slice(selectionStart, selectionEnd));
-
-        if ((currentRaw.length - selectedRaw.length) >= MAX_LEN) {
-          event.preventDefault();
+      async function runInvalidPingpongOnce() {
+        for (let step = 0; step < VERIFY_SEQUENCE.length; step += 1) {
+          const index = VERIFY_SEQUENCE[step];
+          const box = boxEls[index];
+          box.classList.remove('verifying-active');
+          void box.offsetWidth;
+          box.classList.add('verifying-active');
+          await wait(VERIFY_STEP_MS);
         }
-      });
+      }
+
+      // handleInvalidResult (one-cycle pingpong + clear)
+      async function handleInvalidResult(type) {
+        stopVerifying();
+        fieldShell.classList.add('error');
+        boxEls.forEach((box) => box.classList.add('error'));
+
+        await runInvalidPingpongOnce();
+        stopVerifying();
+        await clearFromEndToStart();
+
+        isSubmitting = false;
+        applyFieldState(rawCode);
+
+        statusEl.textContent = type === 'inactive' ? 'Kode tidak aktif.' : 'Kode tidak ditemukan.';
+      }
 
       codeInput.addEventListener('input', () => {
-        if (isSubmitting || introRunning) return;
+        if (isSubmitting || introRunning || isClearing) return;
 
-        const domValue = codeInput.value;
-        const prevRaw = rawCode;
-        const caretPos = codeInput.selectionStart ?? domValue.length;
-        const selectionEnd = codeInput.selectionEnd ?? caretPos;
-        const caretAtEnd = caretPos === domValue.length && selectionEnd === domValue.length;
-
-        const nextRaw = sanitizeRaw(domValue);
-        if (codeInput.value !== nextRaw) {
-          const start = codeInput.selectionStart ?? nextRaw.length;
-          codeInput.value = nextRaw;
-          codeInput.setSelectionRange(Math.min(start, nextRaw.length), Math.min(start, nextRaw.length));
+        if (fieldShell.classList.contains('error') && codeInput.value.length > 0) {
+          removeErrorStyles();
         }
 
-        const appendedAtEnd =
-          nextRaw.length === prevRaw.length + 1 && nextRaw.startsWith(prevRaw) && caretAtEnd;
-        const deletedAtEnd =
-          nextRaw.length === prevRaw.length - 1 && prevRaw.startsWith(nextRaw) && caretAtEnd;
+        // core input render logic
+        const raw = sanitizeRaw(codeInput.value);
+        if (codeInput.value !== raw) {
+          codeInput.value = raw;
+        }
 
-        if (appendedAtEnd) {
-          syncRaw(nextRaw, 'append', { index: nextRaw.length - 1 });
-        } else if (deletedAtEnd) {
-          syncRaw(nextRaw, 'delete', { index: prevRaw.length - 1, char: prevRaw[prevRaw.length - 1] });
+        const wasFull = prevRaw.length === MAX_LEN;
+
+        // animate only on simple append/delete at end
+        if (raw.length === prevRaw.length + 1 && raw.startsWith(prevRaw)) {
+          rawCode = raw;
+          instantRender(raw);
+          animateIn(prevRaw.length);
+        } else if (raw.length === prevRaw.length - 1 && prevRaw.startsWith(raw)) {
+          const removedIndex = raw.length;
+          const removedChar = prevRaw[removedIndex] || '';
+          rawCode = raw;
+          instantRender(raw);
+          animateOut(removedIndex, removedChar);
         } else {
-          syncRaw(nextRaw, 'instant');
+          rawCode = raw;
+          instantRender(raw);
         }
+
+        if (!wasFull && raw.length === MAX_LEN) {
+          completePulse();
+        }
+
+        prevRaw = raw;
       });
 
 
@@ -510,25 +653,33 @@
       });
 
       clearBtn.addEventListener('click', () => {
-        if (isSubmitting || introRunning) return;
+        if (isSubmitting || introRunning || isClearing) return;
+        stopVerifying();
+        clearPendingTimeouts();
         statusEl.textContent = '';
-        codeInput.value = '';
-        syncRaw('', 'clear');
-        codeInput.focus({ preventScroll: true });
+        removeErrorStyles();
+
+        (async () => {
+          await clearFromEndToStart();
+          codeInput.focus({ preventScroll: true });
+        })();
       });
 
       submitBtn.addEventListener('click', async () => {
-        if (isSubmitting || introRunning) return;
+        if (isSubmitting || introRunning || isClearing) return;
 
-        if (rawCode.length !== MAX_LEN) {
-          statusEl.textContent = 'Kode harus berisi tepat 12 karakter.';
+        if (rawCode.length < MAX_LEN) {
+          statusEl.textContent = 'Kode belum lengkap. Pastikan 12 karakter ya.';
+          await warningIncomplete();
           return;
         }
 
         isSubmitting = true;
-        clearBtn.disabled = true;
-        submitBtn.disabled = true;
+        stopVerifying();
+        clearPendingTimeouts();
         statusEl.textContent = 'Memproses pencarian...';
+        applyFieldState(rawCode);
+        startVerifying();
 
         try {
           const response = await fetch('/api/lookup', {
@@ -538,6 +689,7 @@
           });
 
           const payload = await response.json();
+          stopVerifying();
 
           if (response.ok && payload.ok && payload.redirect) {
             window.location.href = payload.redirect;
@@ -545,23 +697,34 @@
           }
 
           if (response.status === 404) {
-            statusEl.textContent = 'Kode tidak ditemukan. Coba periksa kembali kodenya.';
-          } else if (response.status === 410) {
-            statusEl.textContent = 'Kode ini sedang tidak aktif. Hubungi pemilik jika perlu.';
-          } else {
-            statusEl.textContent = 'Maaf, terjadi kendala saat memproses kode. Silakan coba lagi.';
+            await handleInvalidResult('not_found');
+            return;
           }
+
+          if (response.status === 410) {
+            await handleInvalidResult('inactive');
+            return;
+          }
+
+          statusEl.textContent = 'Maaf, terjadi kendala saat memproses kode. Silakan coba lagi.';
         } catch (_error) {
+          stopVerifying();
           statusEl.textContent = 'Tidak bisa terhubung ke server. Periksa koneksi lalu coba lagi.';
         } finally {
+          if (!isSubmitting) return;
+          stopVerifying();
           isSubmitting = false;
-          clearBtn.disabled = rawCode.length === 0;
-          submitBtn.disabled = false;
+          applyFieldState(rawCode);
         }
       });
 
+      window.addEventListener('beforeunload', () => {
+        stopVerifying();
+        clearPendingTimeouts();
+      });
+
       codeInput.disabled = true;
-      render('');
+      instantRender('');
       runIntroAnimation();
     </script>
   </body>
