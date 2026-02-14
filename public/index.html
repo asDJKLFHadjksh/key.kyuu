@@ -120,6 +120,9 @@
 
       function clearCaptureInput() {
         hiddenInput.value = '';
+        if (typeof hiddenInput.setSelectionRange === 'function') {
+          hiddenInput.setSelectionRange(0, 0);
+        }
       }
 
       function isPrintableChar(char) {
@@ -145,6 +148,8 @@
       }
 
       function clearAtBackspace() {
+        caretIndex = clampCaret(caretIndex);
+
         // If current slot has content, clear it first.
         if (code[caretIndex]) {
           code[caretIndex] = '';
@@ -246,17 +251,7 @@
           return;
         }
 
-        if (event.key === 'Backspace') {
-          event.preventDefault();
-          clearAtBackspace();
-          commitSlotState();
-          return;
-        }
-
-        if (event.key === 'Delete') {
-          event.preventDefault();
-          clearAtDelete();
-          commitSlotState();
+        if (event.key === 'Backspace' || event.key === 'Delete') {
           return;
         }
       });
@@ -271,9 +266,6 @@
         handledByBeforeInput = false;
 
         if (isComposing) {
-          if (event.inputType.startsWith('insert')) {
-            event.preventDefault();
-          }
           return;
         }
 
