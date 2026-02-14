@@ -48,130 +48,34 @@
         font-size: 0.95rem;
       }
 
-      .otp-wrap {
-        position: relative;
-        display: flex;
-        flex-wrap: nowrap;
-        justify-content: center;
-        gap: clamp(0.1rem, 0.8vw, 0.5rem);
+      .field-shell {
+        --len: 0;
         margin: 0 auto;
-        padding: 0.35rem;
+        width: clamp(8ch, calc(6ch + (var(--len) * 1ch)), 26ch);
+        transition: width 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+        border: 1.5px solid rgba(255, 255, 255, 0.35);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.03);
+        overflow: hidden;
+      }
+
+      .field-shell.complete {
+        border-color: var(--accent);
+        box-shadow: 0 0 0.75rem rgba(138, 78, 255, 0.35);
+      }
+
+      .code-input {
         width: 100%;
-        max-width: 100%;
-        cursor: text;
-      }
-
-      .separator {
-        width: clamp(8px, 1.8vw, 12px);
-        display: grid;
-        place-items: center;
-        color: rgba(255, 255, 255, 0.72);
-        font-weight: 600;
-        transform: translateY(-1px);
-        user-select: none;
-      }
-
-      .box {
-        --box-size: clamp(16px, 5.1vw, 48px);
-        flex: 0 0 var(--box-size);
-        width: var(--box-size);
-        height: var(--box-size);
-        border-radius: clamp(4px, 0.7vw, 10px);
-        border: 1.5px solid rgba(255, 255, 255, 0.42);
-        display: grid;
-        place-items: center;
-        transform: rotate(0deg) scale(1);
-        transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease,
-          opacity 180ms ease;
-        will-change: transform, opacity;
-      }
-
-      .box.empty {
-        border-color: rgba(255, 255, 255, 0.26);
-      }
-
-      .box.hovered,
-      .box.active {
-        transform: rotate(45deg);
-        border-color: var(--accent);
-      }
-
-      .box.highlight {
-        box-shadow: 0 0 0.6rem rgba(138, 78, 255, 0.7);
-        border-color: var(--accent);
-        transform: rotate(0deg) scale(1.06);
-      }
-
-      .box-inner {
-        transform: rotate(0deg);
-        transition: transform 180ms ease;
-      }
-
-      .box,
-      .box span {
-        -webkit-font-smoothing: antialiased;
-        backface-visibility: hidden;
-        transform-style: preserve-3d;
-      }
-
-      .box.hovered .box-inner,
-      .box.active .box-inner {
-        transform: rotate(-45deg);
-      }
-
-      .digit {
-        font-size: clamp(0.68rem, 2.5vw, 1.25rem);
-        font-weight: 600;
-        line-height: 1;
-        opacity: 1;
-        transform: scale(1);
-      }
-
-      .digit.anim-in {
-        animation: digitIn 170ms ease forwards;
-      }
-
-      .digit.anim-out {
-        animation: digitOut 170ms ease forwards;
-      }
-
-      @keyframes digitIn {
-        from {
-          opacity: 0;
-          transform: scale(0.9);
-        }
-        to {
-          opacity: 1;
-          transform: scale(1);
-        }
-      }
-
-      @keyframes digitOut {
-        from {
-          opacity: 1;
-          transform: scale(1);
-        }
-        to {
-          opacity: 0;
-          transform: scale(0.9);
-        }
-      }
-
-      @keyframes rotatePulse {
-        0% {
-          transform: rotate(0deg);
-        }
-        50% {
-          transform: rotate(44deg);
-        }
-        100% {
-          transform: rotate(0deg);
-        }
-      }
-
-      .box.intro,
-      .box.warning {
-        animation: rotatePulse 300ms ease-in-out;
+        border: 0;
+        outline: 0;
+        padding: 0.85rem 1rem;
+        background: transparent;
+        color: var(--fg);
+        font-size: 1rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+          'Courier New', monospace;
       }
 
       .controls {
@@ -214,24 +118,6 @@
         color: var(--accent);
       }
 
-      .sr-only {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        margin: -1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        border: 0;
-      }
-
-      .real-input {
-        position: absolute;
-        opacity: 0;
-        width: 2px;
-        height: 2px;
-        left: -9999px;
-      }
     </style>
   </head>
   <body>
@@ -239,18 +125,19 @@
       <h1>Temukan Pemilik</h1>
       <p class="subtitle">Masukkan kode unik 12 karakter yang terukir pada bandul untuk melihat profil pemilik terdaftar.</p>
 
-      <label for="otp-input" class="sr-only">12-character code input</label>
-      <div id="otpWrap" class="otp-wrap" aria-label="12 character code visual entry"></div>
-      <input
-        id="otp-input"
-        class="real-input"
-        type="text"
-        inputmode="text"
-        autocomplete="one-time-code"
-        autocapitalize="off"
-        spellcheck="false"
-        aria-describedby="status"
-      />
+      <label for="code-input" class="subtitle">Code (12 chars)</label>
+      <div id="field-shell" class="field-shell">
+        <input
+          id="code-input"
+          class="code-input"
+          type="text"
+          inputmode="text"
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+          aria-describedby="status"
+        />
+      </div>
 
       <div class="controls">
         <button id="verifyBtn" type="button">Verify</button>
@@ -259,425 +146,64 @@
     </section>
 
     <script>
-      // ---------- init ----------
       const MAX_DIGITS = 12;
       const GROUP_SIZE = 4;
-      const otpWrap = document.getElementById('otpWrap');
-      const hiddenInput = document.getElementById('otp-input');
+      const shell = document.getElementById('field-shell');
+      const input = document.getElementById('code-input');
       const verifyBtn = document.getElementById('verifyBtn');
       const statusEl = document.getElementById('status');
 
-      let code = Array(MAX_DIGITS).fill('');
-      let caretIndex = 0;
-      let hoverIndex = null;
-      let hasUserInteracted = false;
-      let inputFocused = false;
-      let isVerifying = false;
-      let pingPongTimer = null;
-      let handledByBeforeInput = false;
-      let isComposing = false;
-
-      const boxes = [];
-      const digitsEls = [];
-      const separators = [];
-      const lastRendered = Array(MAX_DIGITS).fill(null);
-
-      function createBoxes() {
-        for (let i = 0; i < MAX_DIGITS; i += 1) {
-          const box = document.createElement('div');
-          box.className = 'box empty';
-          box.dataset.index = String(i);
-
-          const inner = document.createElement('div');
-          inner.className = 'box-inner';
-
-          const digit = document.createElement('span');
-          digit.className = 'digit';
-
-          inner.appendChild(digit);
-          box.appendChild(inner);
-          otpWrap.appendChild(box);
-
-          if ((i + 1) % GROUP_SIZE === 0 && i !== MAX_DIGITS - 1) {
-            const separator = document.createElement('span');
-            separator.className = 'separator';
-            separator.textContent = '-';
-            separator.setAttribute('aria-hidden', 'true');
-            otpWrap.appendChild(separator);
-            separators.push(separator);
-          }
-
-          box.addEventListener('mouseenter', () => {
-            hoverIndex = i;
-            render();
-          });
-          box.addEventListener('mouseleave', () => {
-            hoverIndex = null;
-            render();
-          });
-
-          box.addEventListener('click', (event) => {
-            event.stopPropagation();
-            hasUserInteracted = true;
-            hoverIndex = null;
-            caretIndex = i;
-            focusInput();
-            render();
-          });
-
-          boxes.push(box);
-          digitsEls.push(digit);
-        }
+      function normalizeRaw(value) {
+        return Array.from(value.replace(/-/g, '')).slice(0, MAX_DIGITS).join('');
       }
 
-      // ---------- intro animation ----------
-      function runIntroAnimation() {
-        const ordered = [...boxes].reverse();
-        ordered.forEach((box, idx) => {
-          setTimeout(() => {
-            box.classList.add('intro');
-            setTimeout(() => box.classList.remove('intro'), 320);
-          }, idx * 55);
-        });
+      function formatCode(raw) {
+        return raw.match(new RegExp(`.{1,${GROUP_SIZE}}`, 'g'))?.join('-') ?? '';
       }
 
-      function focusInput() {
-        hiddenInput.focus({ preventScroll: true });
+      function syncField(value) {
+        const raw = normalizeRaw(value);
+        input.value = formatCode(raw);
+        const rawLen = raw.length;
+        shell.style.setProperty('--len', rawLen);
+        shell.classList.toggle('complete', rawLen === MAX_DIGITS);
+        return raw;
       }
 
-      function clearCaptureInput() {
-        hiddenInput.value = '';
-      }
-
-      function isPrintableChar(char) {
-        return !/[\u0000-\u001F\u007F]/.test(char);
-      }
-
-      function filterPrintable(text) {
-        return Array.from(text || '').filter(isPrintableChar).join('');
-      }
-
-      function clampCaret(index) {
-        return Math.max(0, Math.min(index, MAX_DIGITS - 1));
-      }
-
-      function writeTextAtCaret(text) {
-        const printable = filterPrintable(text);
-        if (!printable) return;
-
-        for (const ch of printable) {
-          code[caretIndex] = ch;
-          if (caretIndex < MAX_DIGITS - 1) {
-            caretIndex += 1;
-          }
-        }
-      }
-
-      function clearAtBackspace() {
-        // If current slot has content, clear it first.
-        if (code[caretIndex]) {
-          code[caretIndex] = '';
-          return;
-        }
-
-        // Otherwise move left and clear.
-        if (caretIndex > 0) {
-          caretIndex -= 1;
-          code[caretIndex] = '';
-          return;
-        }
-
-        // caretIndex === 0 and slot already empty: keep as-is.
-        code[0] = '';
-      }
-
-      function clearAtDelete() {
-        code[caretIndex] = '';
-      }
-
-      function commitSlotState() {
-        clearCaptureInput();
-        render();
-      }
-
-      function nextEmptyIndex() {
-        const empty = code.findIndex((char) => char === '');
-        return empty === -1 ? MAX_DIGITS : empty;
-      }
-
-
-      // ---------- input handling ----------
-      hiddenInput.addEventListener('focus', () => {
-        inputFocused = true;
-        clearCaptureInput();
-        render();
+      input.addEventListener('input', () => {
+        syncField(input.value);
       });
 
-      hiddenInput.addEventListener('blur', () => {
-        inputFocused = false;
-        hoverIndex = null;
-        render();
-      });
-
-      hiddenInput.addEventListener('compositionstart', () => {
-        if (isVerifying) return;
-        isComposing = true;
-        hasUserInteracted = true;
-      });
-
-      hiddenInput.addEventListener('compositionend', (event) => {
-        if (isVerifying) return;
-        hasUserInteracted = true;
-        isComposing = false;
-        writeTextAtCaret(event.data || hiddenInput.value);
-        commitSlotState();
-      });
-
-      hiddenInput.addEventListener('keydown', (event) => {
-        if (isVerifying) {
-          event.preventDefault();
-          return;
-        }
-
-        hasUserInteracted = true;
-
+      input.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
           event.preventDefault();
           verifyBtn.click();
-          return;
-        }
-
-        if (event.key === 'ArrowLeft') {
-          event.preventDefault();
-          caretIndex = clampCaret(caretIndex - 1);
-          render();
-          return;
-        }
-
-        if (event.key === 'ArrowRight') {
-          event.preventDefault();
-          caretIndex = clampCaret(caretIndex + 1);
-          render();
-          return;
-        }
-
-        if (event.key === 'Home') {
-          event.preventDefault();
-          caretIndex = 0;
-          render();
-          return;
-        }
-
-        if (event.key === 'End') {
-          event.preventDefault();
-          caretIndex = MAX_DIGITS - 1;
-          render();
-          return;
-        }
-
-        if (event.key === 'Backspace') {
-          event.preventDefault();
-          clearAtBackspace();
-          commitSlotState();
-          return;
-        }
-
-        if (event.key === 'Delete') {
-          event.preventDefault();
-          clearAtDelete();
-          commitSlotState();
-          return;
         }
       });
-
-      hiddenInput.addEventListener('beforeinput', (event) => {
-        if (isVerifying) {
-          event.preventDefault();
-          return;
-        }
-
-        hasUserInteracted = true;
-        handledByBeforeInput = false;
-
-        if (isComposing) {
-          if (event.inputType.startsWith('insert')) {
-            event.preventDefault();
-          }
-          return;
-        }
-
-        if (event.inputType === 'insertText') {
-          event.preventDefault();
-          handledByBeforeInput = true;
-          writeTextAtCaret(event.data || '');
-          commitSlotState();
-          return;
-        }
-
-        if (event.inputType === 'deleteContentBackward') {
-          event.preventDefault();
-          handledByBeforeInput = true;
-          clearAtBackspace();
-          commitSlotState();
-          return;
-        }
-
-        if (event.inputType === 'deleteContentForward') {
-          event.preventDefault();
-          handledByBeforeInput = true;
-          clearAtDelete();
-          commitSlotState();
-          return;
-        }
-
-        if (event.inputType === 'insertFromPaste') {
-          event.preventDefault();
-          handledByBeforeInput = true;
-          clearCaptureInput();
-        }
-      });
-
-      hiddenInput.addEventListener('input', (event) => {
-        if (isVerifying) {
-          clearCaptureInput();
-          return;
-        }
-
-        if (handledByBeforeInput) {
-          handledByBeforeInput = false;
-          clearCaptureInput();
-          return;
-        }
-
-        hasUserInteracted = true;
-
-        if (event.inputType === 'deleteContentBackward') {
-          clearAtBackspace();
-          commitSlotState();
-          return;
-        }
-
-        if (event.inputType === 'deleteContentForward') {
-          clearAtDelete();
-          commitSlotState();
-          return;
-        }
-
-        writeTextAtCaret(hiddenInput.value);
-        commitSlotState();
-      });
-
-      // ---------- paste sanitization ----------
-      hiddenInput.addEventListener('paste', (event) => {
-        if (isVerifying) return;
-        event.preventDefault();
-        hasUserInteracted = true;
-        writeTextAtCaret(event.clipboardData?.getData('text') || '');
-        commitSlotState();
-      });
-
-      otpWrap.addEventListener('click', () => {
-        hasUserInteracted = true;
-        hoverIndex = null;
-        if (nextEmptyIndex() >= MAX_DIGITS) {
-          caretIndex = MAX_DIGITS - 1;
-        } else {
-          caretIndex = nextEmptyIndex();
-        }
-        focusInput();
-        render();
-      });
-
-      // ---------- warning animation ----------
-      function runWarningAnimation() {
-        boxes.forEach((box, i) => {
-          setTimeout(() => {
-            box.classList.add('warning');
-            setTimeout(() => box.classList.remove('warning'), 320);
-          }, i * 35);
-        });
-      }
-
-      // ---------- verifying loop ----------
-      function startVerifyingLoop() {
-        const seq = [
-          ...Array.from({ length: MAX_DIGITS }, (_, i) => i),
-          ...Array.from({ length: MAX_DIGITS }, (_, i) => MAX_DIGITS - 1 - i),
-        ];
-        let frame = 0;
-
-        pingPongTimer = setInterval(() => {
-          const active = seq[frame % seq.length];
-          boxes.forEach((box, idx) => box.classList.toggle('highlight', idx === active));
-          frame += 1;
-        }, 110);
-      }
-
-      function stopVerifyingLoop() {
-        clearInterval(pingPongTimer);
-        pingPongTimer = null;
-        boxes.forEach((box) => box.classList.remove('highlight'));
-      }
-
-      function render() {
-        for (let i = 0; i < MAX_DIGITS; i += 1) {
-          const value = code[i];
-          if (lastRendered[i] !== value) {
-            const span = digitsEls[i];
-            span.textContent = '';
-            requestAnimationFrame(() => {
-              span.textContent = value;
-            });
-            lastRendered[i] = value;
-          }
-
-          boxes[i].classList.toggle('empty', !value);
-
-          const activeByCaret = hasUserInteracted && inputFocused && caretIndex === i;
-          const activeByHover = hasUserInteracted && !inputFocused && hoverIndex === i;
-          const shouldActive = !isVerifying && (activeByCaret || activeByHover);
-          boxes[i].classList.toggle('active', shouldActive && activeByCaret);
-          boxes[i].classList.toggle('hovered', shouldActive && activeByHover);
-        }
-      }
 
       verifyBtn.addEventListener('click', () => {
-        hasUserInteracted = true;
-        focusInput();
-
-        const entered = code.join('');
-        const isComplete = code.every((slot) => slot !== '');
-        if (!isComplete) {
+        input.focus({ preventScroll: true });
+        const entered = syncField(input.value);
+        if (entered.length < MAX_DIGITS) {
           statusEl.textContent = 'Please enter all 12 characters.';
           statusEl.className = 'status';
-          runWarningAnimation();
-          render();
           return;
         }
 
-        isVerifying = true;
         verifyBtn.disabled = true;
         statusEl.textContent = 'Verifying…';
         statusEl.className = 'status verifying';
-        startVerifyingLoop();
-        render();
 
         const delay = 2300;
         setTimeout(() => {
           const success = entered.charCodeAt(entered.length - 1) % 2 === 0;
-          isVerifying = false;
           verifyBtn.disabled = false;
-          stopVerifyingLoop();
           statusEl.className = 'status';
           statusEl.textContent = success ? 'Code verified.' : 'Invalid code. Try again.';
-          render();
         }, delay);
       });
 
-      createBoxes();
-      render();
-      runIntroAnimation();
-      clearCaptureInput();
+      syncField('');
     </script>
   </body>
 </html>
