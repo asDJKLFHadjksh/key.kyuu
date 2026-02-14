@@ -4,453 +4,313 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Temukan Pemilik Bandul</title>
-    <link rel="stylesheet" href="/assets/theme.css" />
-    <link rel="stylesheet" href="/assets/otp.css" />
+    <style>
+      :root {
+        --bg: #121212;
+        --panel: #1b1b1b;
+        --fg: #ffffff;
+        --accent: #8a4eff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 1rem;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: Inter, "Segoe UI", Roboto, sans-serif;
+      }
+
+      .panel {
+        width: min(94vw, 760px);
+        background: var(--panel);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 18px;
+        padding: clamp(1rem, 3vw, 2rem);
+        text-align: center;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(1.3rem, 2.2vw, 1.8rem);
+        font-weight: 600;
+        letter-spacing: 0.01em;
+      }
+
+      .subtitle {
+        margin: 0.6rem auto 1.2rem;
+        max-width: 60ch;
+        opacity: 0.86;
+        font-size: 0.95rem;
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        padding: 0;
+        border: 0;
+        clip: rect(0, 0, 0, 0);
+        overflow: hidden;
+      }
+
+      .input-row {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 1rem;
+      }
+
+      .grow-shell {
+        width: min(92vw, 460px);
+        display: flex;
+        justify-content: center;
+      }
+
+      .grow-track {
+        width: 100%;
+        transform-origin: center center;
+        will-change: transform, opacity;
+        transition: transform 220ms ease, opacity 220ms ease, filter 220ms ease;
+      }
+
+      .input-field {
+        width: 100%;
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        border-radius: 12px;
+        background: #171717;
+        color: var(--fg);
+        padding: 0.78rem 0.92rem;
+        font-size: clamp(1rem, 2.8vw, 1.15rem);
+        letter-spacing: 0.08em;
+        text-align: center;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      }
+
+      .input-field:focus {
+        outline: none;
+        border-color: rgba(138, 78, 255, 0.7);
+      }
+
+      .grow-track.complete .input-field {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 1px rgba(138, 78, 255, 0.25), 0 0 16px rgba(138, 78, 255, 0.24);
+      }
+
+      .actions {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.55rem;
+      }
+
+      .clear-btn {
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        background: transparent;
+        color: var(--fg);
+        border-radius: 10px;
+        width: 2.7rem;
+        height: 2.7rem;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+        font-size: 1rem;
+        line-height: 1;
+      }
+
+      .clear-btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+
+      .btn-primary {
+        border: 0;
+        border-radius: 12px;
+        padding: 0.74rem 1.2rem;
+        min-height: 2.7rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        background: var(--accent);
+        color: var(--fg);
+        cursor: pointer;
+      }
+
+      .btn-primary:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .status {
+        margin-top: 0.8rem;
+        min-height: 1.2rem;
+        font-size: 0.92rem;
+        opacity: 0.92;
+      }
+    </style>
   </head>
   <body>
-    <section class="panel panel-wide">
+    <section class="panel">
       <h1>Temukan Pemilik Bandul</h1>
-      <p class="subtitle">Masukkan kode bandul 12 karakter yang terukir di bandul untuk melihat profil pemilik terdaftar.</p>
+      <p class="subtitle">Masukkan kode bandul 12 karakter untuk melihat profil pemilik terdaftar.</p>
 
-      <label for="otp-input" class="sr-only">Input Kode Bandul 12 karakter</label>
-      <div id="otpWrap" class="otp-wrap" aria-label="Entri visual Kode Bandul 12 karakter"></div>
-      <input
-        id="otp-input"
-        class="real-input"
-        type="text"
-        inputmode="text"
-        autocomplete="off"
-        autocapitalize="off"
-        spellcheck="false"
-        autocorrect="off"
-        aria-describedby="status"
-      />
-
-      <div class="controls">
-        <div class="action-col">
-          <button id="verifyBtn" type="button" class="btn-primary">Lihat Profil Pemilik</button>
-          <button id="clearCodeBtn" type="button" class="clear-code-link">Hapus kode</button>
+      <label for="codeInput" class="sr-only">Kode bandul 12 karakter</label>
+      <div class="input-row">
+        <div class="grow-shell">
+          <div id="growTrack" class="grow-track">
+            <input
+              id="codeInput"
+              class="input-field"
+              type="text"
+              inputmode="text"
+              autocomplete="off"
+              autocapitalize="off"
+              spellcheck="false"
+              autocorrect="off"
+              placeholder="XXXX-XXXX-XXXX"
+              aria-describedby="status"
+            />
+          </div>
         </div>
-        <p id="status" class="status" aria-live="polite"></p>
       </div>
+
+      <div class="actions">
+        <button id="clearBtn" type="button" class="clear-btn" aria-label="Hapus kode">✕</button>
+        <button id="submitBtn" type="button" class="btn-primary">Lihat Profil Pemilik</button>
+      </div>
+      <p id="status" class="status" aria-live="polite"></p>
     </section>
 
-<script>
-      // ---------- init ----------
-      const MAX_DIGITS = 12;
-      const GROUP_SIZE = 4;
-      const otpWrap = document.getElementById('otpWrap');
-      const hiddenInput = document.getElementById('otp-input');
-      const verifyBtn = document.getElementById('verifyBtn');
-      const clearCodeBtn = document.getElementById('clearCodeBtn');
+    <script>
+      const MAX_LEN = 12;
+      const MIN_SCALE = 0.15;
+      const codeInput = document.getElementById('codeInput');
+      const clearBtn = document.getElementById('clearBtn');
+      const submitBtn = document.getElementById('submitBtn');
       const statusEl = document.getElementById('status');
+      const growTrack = document.getElementById('growTrack');
 
-      let code = Array(MAX_DIGITS).fill('');
-      let caretIndex = 0;
-      let hoverIndex = null;
-      let hasUserInteracted = false;
-      let inputFocused = false;
-      let isVerifying = false;
-      let pingPongTimer = null;
-      let isComposing = false;
-      let composingPreview = '';
-      let deleteHandledByBeforeInput = false;
+      // Source of truth: rawCode always stores user code without hyphens/spaces.
+      let rawCode = '';
+      let isSubmitting = false;
 
-      const boxes = [];
-      const digitsEls = [];
-      const separators = [];
-      const lastRendered = Array(MAX_DIGITS).fill(null);
+      function sanitizeRaw(value) {
+        return String(value || '').replace(/[-\s]/g, '').slice(0, MAX_LEN);
+      }
 
-      function createBoxes() {
-        for (let i = 0; i < MAX_DIGITS; i += 1) {
-          const box = document.createElement('div');
-          box.className = 'box empty';
-          box.dataset.index = String(i);
+      function formatCode(raw) {
+        const first = raw.slice(0, 4);
+        const second = raw.slice(4, 8);
+        const third = raw.slice(8, 12);
+        return [first, second, third].filter(Boolean).join('-');
+      }
 
-          const inner = document.createElement('div');
-          inner.className = 'box-inner';
+      function countRawBeforeCaret(text, caretPos) {
+        const left = text.slice(0, Math.max(0, caretPos));
+        return sanitizeRaw(left).length;
+      }
 
-          const digit = document.createElement('span');
-          digit.className = 'digit';
-
-          inner.appendChild(digit);
-          box.appendChild(inner);
-          otpWrap.appendChild(box);
-
-          if ((i + 1) % GROUP_SIZE === 0 && i !== MAX_DIGITS - 1) {
-            const separator = document.createElement('span');
-            separator.className = 'separator';
-            separator.textContent = '-';
-            separator.setAttribute('aria-hidden', 'true');
-            otpWrap.appendChild(separator);
-            separators.push(separator);
+      function mapRawIndexToFormattedIndex(rawIndex, formattedValue) {
+        let seen = 0;
+        for (let i = 0; i < formattedValue.length; i += 1) {
+          if (formattedValue[i] !== '-') {
+            seen += 1;
           }
-
-          box.addEventListener('mouseenter', () => {
-            hoverIndex = i;
-            render();
-          });
-          box.addEventListener('mouseleave', () => {
-            hoverIndex = null;
-            render();
-          });
-
-          box.addEventListener('click', (event) => {
-            event.stopPropagation();
-            hasUserInteracted = true;
-            hoverIndex = null;
-            caretIndex = i;
-            focusInput();
-            render();
-          });
-
-          boxes.push(box);
-          digitsEls.push(digit);
+          if (seen === rawIndex) {
+            return i + 1;
+          }
         }
+        return formattedValue.length;
       }
 
-      // ---------- intro animation ----------
-      function runIntroAnimation() {
-        const ordered = [...boxes].reverse();
-        ordered.forEach((box, idx) => {
-          setTimeout(() => {
-            box.classList.add('intro');
-            setTimeout(() => box.classList.remove('intro'), 320);
-          }, idx * 55);
+      function applyGrowState() {
+        const lengthForProgress = Math.max(rawCode.length, 1);
+        const progress = Math.min(Math.max(lengthForProgress / MAX_LEN, 0), 1);
+        const scale = MIN_SCALE + (1 - MIN_SCALE) * progress;
+
+        growTrack.style.transform = `scaleX(${scale})`;
+        growTrack.style.opacity = String(0.78 + progress * 0.22);
+        growTrack.classList.toggle('complete', rawCode.length === MAX_LEN);
+      }
+
+      function syncInputDisplay(nextRaw, rawCaret) {
+        rawCode = nextRaw;
+        const formatted = formatCode(rawCode);
+        codeInput.value = formatted;
+
+        const safeRawCaret = Math.min(Math.max(rawCaret, 0), rawCode.length);
+        const formattedCaret = mapRawIndexToFormattedIndex(safeRawCaret, formatted);
+
+        // Keep mobile typing stable by always resetting caret after formatting.
+        requestAnimationFrame(() => {
+          codeInput.setSelectionRange(formattedCaret, formattedCaret);
         });
+
+        clearBtn.disabled = rawCode.length === 0 || isSubmitting;
+        submitBtn.disabled = isSubmitting;
+        applyGrowState();
       }
 
-      function focusInput() {
-        hiddenInput.focus({ preventScroll: true });
-      }
+      codeInput.addEventListener('input', () => {
+        if (isSubmitting) return;
 
-      function clearCaptureInput() {
-        hiddenInput.value = '';
-        try {
-          hiddenInput.setSelectionRange(0, 0);
-        } catch (_error) {
-          // Some mobile keyboards can throw here; ignore and keep input usable.
-        }
-      }
+        const domValue = codeInput.value;
+        const domCaret = codeInput.selectionStart ?? domValue.length;
+        const nextRaw = sanitizeRaw(domValue);
+        const rawCaret = Math.min(countRawBeforeCaret(domValue, domCaret), nextRaw.length);
 
-      function sanitizeInputChars(text) {
-        return String(text ?? '').replace(/[\r\n\t]/g, '');
-      }
-
-      function clampCaret(index) {
-        return Math.max(0, Math.min(index, MAX_DIGITS - 1));
-      }
-
-      function writeTextAtCaret(text) {
-        const chars = sanitizeInputChars(text);
-        if (!chars) return;
-
-        code[caretIndex] = chars.slice(-1);
-      }
-
-      function clearAtBackspace() {
-        code[caretIndex] = '';
-      }
-
-      function clearAtDelete() {
-        code[caretIndex] = '';
-      }
-
-      function commitSlotState() {
-        clearCaptureInput();
-        render();
-      }
-
-
-      // ---------- input handling ----------
-      hiddenInput.addEventListener('focus', () => {
-        inputFocused = true;
-        clearCaptureInput();
-        render();
+        syncInputDisplay(nextRaw, rawCaret);
       });
 
-      hiddenInput.addEventListener('blur', () => {
-        inputFocused = false;
-        hoverIndex = null;
-        render();
-      });
-
-      hiddenInput.addEventListener('compositionstart', () => {
-        if (isVerifying) return;
-        isComposing = true;
-        composingPreview = '';
-        hasUserInteracted = true;
-      });
-
-      hiddenInput.addEventListener('compositionupdate', (event) => {
-        if (isVerifying) return;
-        hasUserInteracted = true;
-        composingPreview = sanitizeInputChars(event.data || hiddenInput.value || event.target?.value || '');
-        render();
-      });
-
-      hiddenInput.addEventListener('compositionend', (event) => {
-        if (isVerifying) return;
-        hasUserInteracted = true;
-        isComposing = false;
-        writeTextAtCaret(event.data || hiddenInput.value || event.target?.value || '');
-        composingPreview = '';
-        commitSlotState();
-      });
-
-      hiddenInput.addEventListener('keydown', (event) => {
-        if (isVerifying) {
-          event.preventDefault();
-          return;
-        }
-
-        hasUserInteracted = true;
-
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          caretIndex = clampCaret(caretIndex + 1);
-          clearCaptureInput();
-          render();
-          return;
-        }
-
-        if (event.key === 'ArrowLeft') {
-          event.preventDefault();
-          caretIndex = clampCaret(caretIndex - 1);
-          clearCaptureInput();
-          render();
-          return;
-        }
-
-        if (event.key === 'ArrowRight') {
-          event.preventDefault();
-          caretIndex = clampCaret(caretIndex + 1);
-          clearCaptureInput();
-          render();
-          return;
-        }
-
-        if (event.key === 'Home') {
-          event.preventDefault();
-          caretIndex = 0;
-          clearCaptureInput();
-          render();
-          return;
-        }
-
-        if (event.key === 'End') {
-          event.preventDefault();
-          caretIndex = MAX_DIGITS - 1;
-          clearCaptureInput();
-          render();
-          return;
-        }
-
-        if (event.key === 'Backspace') {
-          event.preventDefault();
-          clearAtBackspace();
-          commitSlotState();
-          return;
-        }
-
-        if (event.key === 'Delete') {
-          event.preventDefault();
-          clearAtDelete();
-          commitSlotState();
-          return;
-        }
-      });
-
-      hiddenInput.addEventListener('beforeinput', (event) => {
-        if (isVerifying) {
-          event.preventDefault();
-          return;
-        }
-
-        if (event.inputType === 'insertLineBreak') {
-          event.preventDefault();
-          hasUserInteracted = true;
-          caretIndex = clampCaret(caretIndex + 1);
-          clearCaptureInput();
-          render();
-          return;
-        }
-
-        if (event.inputType === 'deleteContentBackward') {
-          event.preventDefault();
-          deleteHandledByBeforeInput = true;
-          clearAtBackspace();
-          commitSlotState();
-          return;
-        }
-
-        if (event.inputType === 'deleteContentForward') {
-          event.preventDefault();
-          deleteHandledByBeforeInput = true;
-          clearAtDelete();
-          commitSlotState();
-        }
-      });
-
-      hiddenInput.addEventListener('input', (event) => {
-        if (isVerifying) {
-          clearCaptureInput();
-          return;
-        }
-
-        hasUserInteracted = true;
-
-        if (isComposing) {
-          return;
-        }
-
-        if (deleteHandledByBeforeInput) {
-          deleteHandledByBeforeInput = false;
-          clearCaptureInput();
-          return;
-        }
-
-        if (event.inputType === 'deleteContentBackward') {
-          clearAtBackspace();
-          commitSlotState();
-          return;
-        }
-
-        if (event.inputType === 'deleteContentForward') {
-          clearAtDelete();
-          commitSlotState();
-          return;
-        }
-
-        writeTextAtCaret(event.data || hiddenInput.value || event.target?.value || '');
-        commitSlotState();
-      });
-
-      // ---------- paste sanitization ----------
-      hiddenInput.addEventListener('paste', (event) => {
-        if (isVerifying) return;
+      codeInput.addEventListener('paste', (event) => {
+        if (isSubmitting) return;
         event.preventDefault();
-        hasUserInteracted = true;
-        writeTextAtCaret(event.clipboardData?.getData('text') || '');
-        commitSlotState();
+
+        const pasted = event.clipboardData?.getData('text') || '';
+        const selectionStart = codeInput.selectionStart ?? 0;
+        const selectionEnd = codeInput.selectionEnd ?? selectionStart;
+        const formatted = codeInput.value;
+
+        const rawStart = countRawBeforeCaret(formatted, selectionStart);
+        const rawEnd = countRawBeforeCaret(formatted, selectionEnd);
+
+        const merged = `${rawCode.slice(0, rawStart)}${sanitizeRaw(pasted)}${rawCode.slice(rawEnd)}`.slice(0, MAX_LEN);
+        const nextCaret = Math.min(rawStart + sanitizeRaw(pasted).length, merged.length);
+
+        syncInputDisplay(merged, nextCaret);
       });
 
-      otpWrap.addEventListener('pointerdown', () => {
-        focusInput();
+      clearBtn.addEventListener('click', () => {
+        if (isSubmitting) return;
+        statusEl.textContent = '';
+        syncInputDisplay('', 0);
+        codeInput.focus({ preventScroll: true });
       });
 
-      otpWrap.addEventListener('click', () => {
-        hasUserInteracted = true;
-        hoverIndex = null;
-        focusInput();
-        render();
-      });
+      submitBtn.addEventListener('click', async () => {
+        if (isSubmitting) return;
 
-      document.addEventListener('keydown', () => {
-        if (document.activeElement !== hiddenInput) {
-          focusInput();
-        }
-      }, true);
-
-      // ---------- warning animation ----------
-      function runWarningAnimation() {
-        boxes.forEach((box, i) => {
-          setTimeout(() => {
-            box.classList.add('warning');
-            setTimeout(() => box.classList.remove('warning'), 320);
-          }, i * 35);
-        });
-      }
-
-      // ---------- verifying loop ----------
-      function startVerifyingLoop() {
-        const seq = [
-          ...Array.from({ length: MAX_DIGITS }, (_, i) => i),
-          ...Array.from({ length: MAX_DIGITS }, (_, i) => MAX_DIGITS - 1 - i),
-        ];
-        let frame = 0;
-
-        pingPongTimer = setInterval(() => {
-          const active = seq[frame % seq.length];
-          boxes.forEach((box, idx) => box.classList.toggle('highlight', idx === active));
-          frame += 1;
-        }, 110);
-      }
-
-      function stopVerifyingLoop() {
-        clearInterval(pingPongTimer);
-        pingPongTimer = null;
-        boxes.forEach((box) => box.classList.remove('highlight'));
-      }
-
-      function render() {
-        for (let i = 0; i < MAX_DIGITS; i += 1) {
-          let value = code[i];
-          if (isComposing && i === caretIndex && composingPreview) {
-            value = composingPreview.slice(-1);
-          }
-
-          if (lastRendered[i] !== value) {
-            const span = digitsEls[i];
-            span.textContent = value;
-            lastRendered[i] = value;
-          }
-
-          boxes[i].classList.toggle('empty', !value);
-
-          const activeByCaret = hasUserInteracted && inputFocused && caretIndex === i;
-          const activeByHover = hasUserInteracted && !inputFocused && hoverIndex === i;
-          const shouldActive = !isVerifying && (activeByCaret || activeByHover);
-          boxes[i].classList.toggle('active', shouldActive && activeByCaret);
-          boxes[i].classList.toggle('hovered', shouldActive && activeByHover);
-        }
-      }
-
-      function setInteractionDisabled(disabled) {
-        hiddenInput.disabled = disabled;
-        verifyBtn.disabled = disabled;
-        clearCodeBtn.disabled = disabled;
-      }
-
-      function clearAllSlots() {
-        hasUserInteracted = true;
-        code = Array(MAX_DIGITS).fill('');
-        caretIndex = 0;
-        composingPreview = '';
-        isComposing = false;
-        clearCaptureInput();
-        focusInput();
-        render();
-      }
-
-      clearCodeBtn.addEventListener('click', clearAllSlots);
-
-      verifyBtn.addEventListener('click', async () => {
-        hasUserInteracted = true;
-        focusInput();
-
-        const entered = code.join('');
-        const isComplete = code.every((slot) => slot !== '');
-        if (!isComplete) {
-          statusEl.textContent = 'Masukkan 12 karakter terlebih dahulu.';
-          statusEl.className = 'status';
-          runWarningAnimation();
-          render();
+        if (rawCode.length !== MAX_LEN) {
+          statusEl.textContent = 'Kode harus berisi tepat 12 karakter.';
           return;
         }
 
-        isVerifying = true;
-        setInteractionDisabled(true);
-        statusEl.textContent = 'Memverifikasi…';
-        statusEl.className = 'status verifying';
-        startVerifyingLoop();
-        render();
+        isSubmitting = true;
+        clearBtn.disabled = true;
+        submitBtn.disabled = true;
+        statusEl.textContent = 'Memproses pencarian...';
 
         try {
           const response = await fetch('/api/lookup', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code: entered }),
+            body: JSON.stringify({ code: rawCode }),
           });
 
           const payload = await response.json();
@@ -460,28 +320,23 @@
             return;
           }
 
-          if (response.status === 404 && payload.error === 'not_found') {
-            statusEl.textContent = 'Kode tidak ditemukan. Coba periksa lagi.';
-          } else if (response.status === 410 && payload.error === 'inactive') {
-            statusEl.textContent = 'Kode sedang dinonaktifkan.';
+          if (response.status === 404) {
+            statusEl.textContent = 'Kode tidak ditemukan. Coba periksa kembali kodenya.';
+          } else if (response.status === 410) {
+            statusEl.textContent = 'Kode ini sedang tidak aktif. Hubungi pemilik jika perlu.';
           } else {
-            statusEl.textContent = 'Terjadi kesalahan. Silakan coba lagi.';
+            statusEl.textContent = 'Maaf, terjadi kendala saat memproses kode. Silakan coba lagi.';
           }
         } catch (_error) {
-          statusEl.textContent = 'Gagal terhubung ke server. Coba lagi.';
+          statusEl.textContent = 'Tidak bisa terhubung ke server. Periksa koneksi lalu coba lagi.';
         } finally {
-          isVerifying = false;
-          setInteractionDisabled(false);
-          stopVerifyingLoop();
-          statusEl.className = 'status';
-          render();
+          isSubmitting = false;
+          clearBtn.disabled = rawCode.length === 0;
+          submitBtn.disabled = false;
         }
       });
 
-      createBoxes();
-      render();
-      runIntroAnimation();
-      clearCaptureInput();
+      syncInputDisplay('', 0);
     </script>
   </body>
 </html>
