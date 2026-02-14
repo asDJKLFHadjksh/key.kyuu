@@ -450,18 +450,17 @@
       });
 
       hiddenInput.addEventListener('beforeinput', (event) => {
-        if (event.inputType === 'insertText' && /^[a-zA-Z0-9]+$/.test(event.data || '')) {
+        if (isVerifying) {
           event.preventDefault();
-          hasUserInteracted = true;
-          handleDigitsInput((event.data || '').toUpperCase());
-          syncHiddenInput();
-          render();
-        } else if (event.inputType === 'deleteContentBackward') {
+          return;
+        }
+
+        hasUserInteracted = true;
+
+        // Mobile-safe behavior: allow native text updates for valid chars,
+        // then normalize in the `input` event pipeline.
+        if (event.inputType === 'insertText' && !/^[a-zA-Z0-9]+$/.test(event.data || '')) {
           event.preventDefault();
-          hasUserInteracted = true;
-          backspaceDigit();
-          syncHiddenInput();
-          render();
         }
       });
 
