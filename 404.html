@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Halaman Tidak Ditemukan</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="card">
+        <p class="eyebrow">404</p>
+        <h1>Halaman tidak ditemukan</h1>
+        <p class="description">
+          Tautan ini tidak tersedia. Kamu akan diarahkan ke halaman input kode.
+        </p>
+        <a class="social-btn fallback-btn" href="/">Kembali ke Input Code</a>
+      </section>
+    </main>
+
+    <script>
+      setTimeout(() => {
+        window.location.replace('/');
+      }, 2500);
+    </script>
+  </body>
+</html>

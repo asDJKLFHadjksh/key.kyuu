@@ -1,0 +1,145 @@
+:root {
+  --bg: #0c1020;
+  --bg-top: #121733;
+  --surface: #1a1f2e;
+  --surface-2: #141a2a;
+  --text: #f5f7ff;
+  --muted: #b5bdd8;
+  --line: #2b3353;
+  --line-strong: #3a4370;
+  --accent: #7f4dff;
+  --accent-hover: #6f3ff2;
+  --accent-2: #f0c23b;
+  --danger: #ff6b8a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: 'Segoe UI', Inter, system-ui, -apple-system, sans-serif;
+  color: var(--text);
+  background: radial-gradient(circle at top, var(--bg-top) 0%, var(--bg) 58%), var(--bg);
+}
+
+.page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 2rem 1rem;
+}
+
+.card {
+  width: min(520px, 100%);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.35);
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--accent-2);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+}
+
+h1 {
+  margin: 0.5rem 0 0.75rem;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+}
+
+.description {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.code-form {
+  margin-top: 1.5rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.input-label {
+  color: #dbe1ff;
+  font-weight: 600;
+}
+
+input {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 0.85rem 1rem;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(127, 77, 255, 0.25);
+}
+
+button,
+.social-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  border: 1px solid #6942d9;
+  border-radius: 10px;
+  padding: 0.8rem 1rem;
+  background: var(--accent);
+  color: #ffffff;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+button:hover,
+.social-btn:hover {
+  transform: translateY(-1px);
+  background: var(--accent-hover);
+}
+
+.message {
+  margin: 0.85rem 0 0;
+  min-height: 1.2rem;
+  color: var(--muted);
+}
+
+.message.error {
+  color: var(--danger);
+}
+
+.social-grid {
+  margin-top: 1.4rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.75rem;
+}
+
+.custom-note {
+  margin-top: 1.2rem;
+  color: var(--muted);
+}
+
+.custom-note summary {
+  cursor: pointer;
+  color: #d5c9ff;
+  font-weight: 600;
+}
+
+.fallback-btn {
+  margin-top: 1.5rem;
+}
