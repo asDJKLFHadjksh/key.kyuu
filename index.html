@@ -61,8 +61,14 @@
         cursor: text;
       }
 
-      .group-gap {
-        margin-right: clamp(0.18rem, 1.15vw, 0.6rem);
+      .separator {
+        width: clamp(8px, 1.8vw, 12px);
+        display: grid;
+        place-items: center;
+        color: rgba(255, 255, 255, 0.72);
+        font-weight: 600;
+        transform: translateY(-1px);
+        user-select: none;
       }
 
       .box {
@@ -265,14 +271,12 @@
 
       const boxes = [];
       const digitsEls = [];
+      const separators = [];
 
       function createBoxes() {
         for (let i = 0; i < MAX_DIGITS; i += 1) {
           const box = document.createElement('div');
           box.className = 'box empty';
-          if ((i + 1) % GROUP_SIZE === 0 && i !== MAX_DIGITS - 1) {
-            box.classList.add('group-gap');
-          }
           box.dataset.index = String(i);
 
           const inner = document.createElement('div');
@@ -284,6 +288,15 @@
           inner.appendChild(digit);
           box.appendChild(inner);
           otpWrap.appendChild(box);
+
+          if ((i + 1) % GROUP_SIZE === 0 && i !== MAX_DIGITS - 1) {
+            const separator = document.createElement('span');
+            separator.className = 'separator';
+            separator.textContent = '-';
+            separator.setAttribute('aria-hidden', 'true');
+            otpWrap.appendChild(separator);
+            separators.push(separator);
+          }
 
           box.addEventListener('mouseenter', () => {
             hoverIndex = i;
@@ -297,6 +310,7 @@
           box.addEventListener('click', (event) => {
             event.stopPropagation();
             hasUserInteracted = true;
+            hoverIndex = null;
             caretIndex = i;
             focusInput();
             render();
@@ -452,8 +466,8 @@
       });
 
       // Mobile fallback: some virtual keyboards bypass keydown/beforeinput consistency.
-      hiddenInput.addEventListener('input', (event) => {
-        if (!event.isTrusted || isVerifying) return;
+      hiddenInput.addEventListener('input', () => {
+        if (isVerifying) return;
         hasUserInteracted = true;
         applyFromRawInput(hiddenInput.value);
       });
@@ -475,6 +489,7 @@
 
       otpWrap.addEventListener('click', () => {
         hasUserInteracted = true;
+        hoverIndex = null;
         if (nextEmptyIndex() >= MAX_DIGITS) {
           caretIndex = MAX_DIGITS;
         } else {
@@ -522,7 +537,7 @@
           boxes[i].classList.toggle('empty', !value);
 
           const activeByCaret = hasUserInteracted && inputFocused && caretIndex === i;
-          const activeByHover = hasUserInteracted && hoverIndex === i;
+          const activeByHover = hasUserInteracted && !inputFocused && hoverIndex === i;
           const shouldActive = !isVerifying && (activeByCaret || activeByHover);
           boxes[i].classList.toggle('active', shouldActive && activeByCaret);
           boxes[i].classList.toggle('hovered', shouldActive && activeByHover);
