@@ -48,6 +48,7 @@
       let isVerifying = false;
       let pingPongTimer = null;
       let isComposing = false;
+      let composingPreview = '';
       let deleteHandledByBeforeInput = false;
 
       const boxes = [];
@@ -196,7 +197,15 @@
       hiddenInput.addEventListener('compositionstart', () => {
         if (isVerifying) return;
         isComposing = true;
+        composingPreview = '';
         hasUserInteracted = true;
+      });
+
+      hiddenInput.addEventListener('compositionupdate', (event) => {
+        if (isVerifying) return;
+        hasUserInteracted = true;
+        composingPreview = sanitizeInputChars(event.data || hiddenInput.value || event.target?.value || '');
+        render();
       });
 
       hiddenInput.addEventListener('compositionend', (event) => {
@@ -204,6 +213,7 @@
         hasUserInteracted = true;
         isComposing = false;
         writeTextAtCaret(event.data || hiddenInput.value || event.target?.value || '');
+        composingPreview = '';
         commitSlotState();
       });
 
@@ -384,7 +394,11 @@
 
       function render() {
         for (let i = 0; i < MAX_DIGITS; i += 1) {
-          const value = code[i];
+          let value = code[i];
+          if (isComposing && i === caretIndex && composingPreview) {
+            value = composingPreview.slice(-1);
+          }
+
           if (lastRendered[i] !== value) {
             const span = digitsEls[i];
             span.textContent = value;
