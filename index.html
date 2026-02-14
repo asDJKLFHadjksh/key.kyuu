@@ -347,6 +347,9 @@
 
       function clearCaptureInput() {
         hiddenInput.value = '';
+        if (typeof hiddenInput.setSelectionRange === 'function') {
+          hiddenInput.setSelectionRange(0, 0);
+        }
       }
 
       function isPrintableChar(char) {
@@ -365,15 +368,15 @@
         const printable = filterPrintable(text);
         if (!printable) return;
 
-        for (const ch of printable) {
-          code[caretIndex] = ch;
-          if (caretIndex < MAX_DIGITS - 1) {
-            caretIndex += 1;
-          }
+        code[caretIndex] = printable.slice(-1);
+        if (caretIndex < MAX_DIGITS - 1) {
+          caretIndex += 1;
         }
       }
 
       function clearAtBackspace() {
+        caretIndex = clampCaret(caretIndex);
+
         // If current slot has content, clear it first.
         if (code[caretIndex]) {
           code[caretIndex] = '';
@@ -475,17 +478,7 @@
           return;
         }
 
-        if (event.key === 'Backspace') {
-          event.preventDefault();
-          clearAtBackspace();
-          commitSlotState();
-          return;
-        }
-
-        if (event.key === 'Delete') {
-          event.preventDefault();
-          clearAtDelete();
-          commitSlotState();
+        if (event.key === 'Backspace' || event.key === 'Delete') {
           return;
         }
       });
@@ -500,17 +493,10 @@
         handledByBeforeInput = false;
 
         if (isComposing) {
-          if (event.inputType.startsWith('insert')) {
-            event.preventDefault();
-          }
           return;
         }
 
         if (event.inputType === 'insertText') {
-          event.preventDefault();
-          handledByBeforeInput = true;
-          writeTextAtCaret(event.data || '');
-          commitSlotState();
           return;
         }
 
