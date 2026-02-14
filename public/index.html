@@ -3,30 +3,34 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Temukan Pemilik</title>
+    <title>Temukan Pemilik Bandul</title>
     <link rel="stylesheet" href="/assets/theme.css" />
     <link rel="stylesheet" href="/assets/otp.css" />
   </head>
   <body>
     <section class="panel panel-wide">
-      <h1>Temukan Pemilik</h1>
-      <p class="subtitle">Masukkan kode unik 12 karakter yang terukir pada bandul untuk melihat profil pemilik terdaftar.</p>
+      <h1>Temukan Pemilik Bandul</h1>
+      <p class="subtitle">Masukkan kode bandul 12 karakter yang terukir di bandul untuk melihat profil pemilik terdaftar.</p>
 
-      <label for="otp-input" class="sr-only">Input kode 12 karakter</label>
-      <div id="otpWrap" class="otp-wrap" aria-label="Entri visual kode 12 karakter"></div>
+      <label for="otp-input" class="sr-only">Input Kode Bandul 12 karakter</label>
+      <div id="otpWrap" class="otp-wrap" aria-label="Entri visual Kode Bandul 12 karakter"></div>
       <input
         id="otp-input"
         class="real-input"
         type="text"
         inputmode="text"
-        autocomplete="one-time-code"
+        autocomplete="off"
         autocapitalize="off"
         spellcheck="false"
+        autocorrect="off"
         aria-describedby="status"
       />
 
       <div class="controls">
-        <button id="verifyBtn" type="button" class="btn-primary">Lihat Profil Pemilik</button>
+        <div class="action-col">
+          <button id="verifyBtn" type="button" class="btn-primary">Lihat Profil Pemilik</button>
+          <button id="clearCodeBtn" type="button" class="clear-code-link">Hapus kode</button>
+        </div>
         <p id="status" class="status" aria-live="polite"></p>
       </div>
     </section>
@@ -38,6 +42,7 @@
       const otpWrap = document.getElementById('otpWrap');
       const hiddenInput = document.getElementById('otp-input');
       const verifyBtn = document.getElementById('verifyBtn');
+      const clearCodeBtn = document.getElementById('clearCodeBtn');
       const statusEl = document.getElementById('status');
 
       let code = Array(MAX_DIGITS).fill('');
@@ -204,6 +209,7 @@
         if (event.key === 'Enter') {
           event.preventDefault();
           caretIndex = clampCaret(caretIndex + 1);
+          clearCaptureInput();
           render();
           return;
         }
@@ -211,6 +217,7 @@
         if (event.key === 'ArrowLeft') {
           event.preventDefault();
           caretIndex = clampCaret(caretIndex - 1);
+          clearCaptureInput();
           render();
           return;
         }
@@ -218,6 +225,7 @@
         if (event.key === 'ArrowRight') {
           event.preventDefault();
           caretIndex = clampCaret(caretIndex + 1);
+          clearCaptureInput();
           render();
           return;
         }
@@ -225,6 +233,7 @@
         if (event.key === 'Home') {
           event.preventDefault();
           caretIndex = 0;
+          clearCaptureInput();
           render();
           return;
         }
@@ -232,6 +241,7 @@
         if (event.key === 'End') {
           event.preventDefault();
           caretIndex = MAX_DIGITS - 1;
+          clearCaptureInput();
           render();
           return;
         }
@@ -251,9 +261,18 @@
         }
       });
 
-      hiddenInput.addEventListener('input', (event) => {
+      hiddenInput.addEventListener('beforeinput', (event) => {
         if (isVerifying) {
           event.preventDefault();
+          return;
+        }
+
+        if (event.inputType === 'insertLineBreak') {
+          event.preventDefault();
+          hasUserInteracted = true;
+          caretIndex = clampCaret(caretIndex + 1);
+          clearCaptureInput();
+          render();
           return;
         }
 
@@ -390,7 +409,21 @@
       function setInteractionDisabled(disabled) {
         hiddenInput.disabled = disabled;
         verifyBtn.disabled = disabled;
+        clearCodeBtn.disabled = disabled;
       }
+
+      function clearAllSlots() {
+        hasUserInteracted = true;
+        code = Array(MAX_DIGITS).fill('');
+        caretIndex = 0;
+        composingPreview = '';
+        isComposing = false;
+        clearCaptureInput();
+        focusInput();
+        render();
+      }
+
+      clearCodeBtn.addEventListener('click', clearAllSlots);
 
       verifyBtn.addEventListener('click', async () => {
         hasUserInteracted = true;
