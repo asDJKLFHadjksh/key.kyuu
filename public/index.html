@@ -69,13 +69,12 @@
       }
 
       .field-shell {
-        --len: 0;
-        width: clamp(4ch, calc(4ch + (var(--len) * 1.1ch)), 18ch);
+        width: min(92vw, 300px);
         position: relative;
         margin: 0 auto;
-        transition: width 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+        transition: border-color 180ms ease, box-shadow 180ms ease;
         border: 1px solid rgba(255, 255, 255, 0.35);
-        border-radius: 12px;
+        border-radius: 14px;
         background: #171717;
       }
 
@@ -84,35 +83,24 @@
         box-shadow: 0 0 0 1px rgba(138, 78, 255, 0.25), 0 0 16px rgba(138, 78, 255, 0.24);
       }
 
-      .field-icon {
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        opacity: 0.55;
-        pointer-events: none;
-        transition: opacity 120ms ease;
-        font-size: 1rem;
-        line-height: 1;
-      }
-
-      .field-shell.has-value .field-icon {
-        opacity: 0;
-      }
-
       .field {
         position: relative;
         z-index: 1;
         width: 100%;
         border: none;
-        border-radius: 12px;
+        border-radius: 14px;
         background: transparent;
         color: var(--fg);
-        padding: 0.78rem 0.92rem;
+        padding: 0.86rem 1rem;
         font-size: clamp(1rem, 2.8vw, 1.15rem);
         letter-spacing: 0.08em;
         text-align: center;
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      }
+
+      .field::placeholder {
+        color: rgba(255, 255, 255, 0.35);
+        letter-spacing: 0.08em;
       }
 
       .field:focus {
@@ -188,8 +176,8 @@
             spellcheck="false"
             autocorrect="off"
             aria-describedby="status"
+            placeholder="XXXX-XXXX-XXXX"
           />
-          <span class="field-icon" aria-hidden="true">✎</span>
         </div>
       </div>
 
@@ -241,9 +229,7 @@
         return formattedValue.length;
       }
 
-      function applyGrowState() {
-        fieldShell.style.setProperty('--len', String(rawCode.length));
-        fieldShell.classList.toggle('has-value', rawCode.length > 0);
+      function applyFieldState() {
         fieldShell.classList.toggle('complete', rawCode.length === MAX_LEN);
       }
 
@@ -262,7 +248,7 @@
 
         clearBtn.disabled = rawCode.length === 0 || isSubmitting;
         submitBtn.disabled = isSubmitting;
-        applyGrowState();
+        applyFieldState();
       }
 
       codeInput.addEventListener('input', () => {
