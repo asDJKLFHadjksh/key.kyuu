@@ -47,7 +47,6 @@
       let inputFocused = false;
       let isVerifying = false;
       let pingPongTimer = null;
-      let handledByBeforeInput = false;
       let isComposing = false;
 
       const boxes = [];
@@ -120,6 +119,11 @@
 
       function clearCaptureInput() {
         hiddenInput.value = '';
+        try {
+          hiddenInput.setSelectionRange(0, 0);
+        } catch (_error) {
+          // Some mobile keyboards can throw here; ignore and keep input usable.
+        }
       }
 
       function isPrintableChar(char) {
@@ -138,9 +142,11 @@
         const printable = filterPrintable(text);
         if (!printable) return;
 
-        code[caretIndex] = printable.slice(-1);
-        if (caretIndex < MAX_DIGITS - 1) {
-          caretIndex += 1;
+        for (const ch of printable) {
+          code[caretIndex] = ch;
+          if (caretIndex < MAX_DIGITS - 1) {
+            caretIndex += 1;
+          }
         }
       }
 
@@ -200,7 +206,7 @@
         if (isVerifying) return;
         hasUserInteracted = true;
         isComposing = false;
-        writeTextAtCaret(event.data || hiddenInput.value);
+        writeTextAtCaret(event.data || hiddenInput.value || event.target?.value || '');
         commitSlotState();
       });
 
@@ -261,62 +267,18 @@
         }
       });
 
-      hiddenInput.addEventListener('beforeinput', (event) => {
-        if (isVerifying) {
-          event.preventDefault();
-          return;
-        }
-
-        hasUserInteracted = true;
-        handledByBeforeInput = false;
-
-        if (isComposing) {
-          if (event.inputType.startsWith('insert')) {
-            event.preventDefault();
-          }
-          return;
-        }
-
-        if (event.inputType === 'insertText') {
-          return;
-        }
-
-        if (event.inputType === 'deleteContentBackward') {
-          event.preventDefault();
-          handledByBeforeInput = true;
-          clearAtBackspace();
-          commitSlotState();
-          return;
-        }
-
-        if (event.inputType === 'deleteContentForward') {
-          event.preventDefault();
-          handledByBeforeInput = true;
-          clearAtDelete();
-          commitSlotState();
-          return;
-        }
-
-        if (event.inputType === 'insertFromPaste') {
-          event.preventDefault();
-          handledByBeforeInput = true;
-          clearCaptureInput();
-        }
-      });
-
       hiddenInput.addEventListener('input', (event) => {
         if (isVerifying) {
           clearCaptureInput();
           return;
         }
 
-        if (handledByBeforeInput) {
-          handledByBeforeInput = false;
+        hasUserInteracted = true;
+
+        if (isComposing) {
           clearCaptureInput();
           return;
         }
-
-        hasUserInteracted = true;
 
         if (event.inputType === 'deleteContentBackward') {
           clearAtBackspace();
@@ -330,7 +292,7 @@
           return;
         }
 
-        writeTextAtCaret(hiddenInput.value);
+        writeTextAtCaret(event.data || hiddenInput.value || event.target?.value || '');
         commitSlotState();
       });
 
