@@ -68,6 +68,119 @@
         margin-bottom: 1rem;
       }
 
+      .input-stack {
+        width: min(92vw, 300px);
+      }
+
+      .box-strip {
+        display: grid;
+        grid-template-columns: repeat(4, 2.4ch) 1.4ch repeat(4, 2.4ch) 1.4ch repeat(4, 2.4ch);
+        justify-content: center;
+        align-items: center;
+        gap: 0.35ch;
+        margin-bottom: 0.52rem;
+        pointer-events: none;
+      }
+
+      .char-box {
+        width: 2.4ch;
+        height: 2.4ch;
+        border: 1px solid rgba(255, 255, 255, 0.34);
+        border-radius: 0.35rem;
+        background: rgba(255, 255, 255, 0.06);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transform-origin: center;
+        overflow: hidden;
+      }
+
+      .char-box.filled {
+        border-color: rgba(138, 78, 255, 0.92);
+        background: rgba(138, 78, 255, 0.14);
+      }
+
+      .char-box-char {
+        display: inline-block;
+        font-size: 0.9rem;
+        line-height: 1;
+        transform-origin: center;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      }
+
+      .separator {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 0.4ch;
+        opacity: 0.5;
+        font-size: 1rem;
+      }
+
+      .char-box.anim-in {
+        animation: boxIn 0.24s cubic-bezier(0.2, 1.2, 0.3, 1) both;
+      }
+
+      .char-box.anim-out {
+        animation: boxOut 150ms cubic-bezier(0.4, 0, 1, 1) both;
+      }
+
+      .char-box.pulse {
+        animation: rotatePulse 360ms cubic-bezier(0.36, 0, 0.22, 1) both;
+        animation-delay: var(--pulse-delay, 0ms);
+      }
+
+      .char-box.pulse .char-box-char {
+        animation: counterPulse 360ms cubic-bezier(0.36, 0, 0.22, 1) both;
+        animation-delay: var(--pulse-delay, 0ms);
+      }
+
+      @keyframes boxIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px) scale(0.9);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      @keyframes boxOut {
+        from {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+        to {
+          opacity: 0;
+          transform: translateY(10px) scale(0.9);
+        }
+      }
+
+      @keyframes rotatePulse {
+        0% {
+          transform: rotate(0deg);
+        }
+        50% {
+          transform: rotate(44deg);
+        }
+        100% {
+          transform: rotate(0deg);
+        }
+      }
+
+      @keyframes counterPulse {
+        0% {
+          transform: rotate(0deg);
+        }
+        50% {
+          transform: rotate(-44deg);
+        }
+        100% {
+          transform: rotate(0deg);
+        }
+      }
+
       .field-shell {
         width: min(92vw, 300px);
         position: relative;
@@ -165,19 +278,38 @@
 
       <label for="codeInput" class="sr-only">Kode bandul 12 karakter</label>
       <div class="input-row">
-        <div id="fieldShell" class="field-shell">
-          <input
-            id="codeInput"
-            class="field"
-            type="text"
-            inputmode="text"
-            autocomplete="off"
-            autocapitalize="off"
-            spellcheck="false"
-            autocorrect="off"
-            aria-describedby="status"
-            placeholder="XXXX-XXXX-XXXX"
-          />
+        <div class="input-stack">
+          <div id="boxStrip" class="box-strip" aria-hidden="true">
+            <div class="char-box" data-slot="0"><span class="char-box-char"></span></div>
+            <div class="char-box" data-slot="1"><span class="char-box-char"></span></div>
+            <div class="char-box" data-slot="2"><span class="char-box-char"></span></div>
+            <div class="char-box" data-slot="3"><span class="char-box-char"></span></div>
+            <span class="separator" aria-hidden="true">—</span>
+            <div class="char-box" data-slot="4"><span class="char-box-char"></span></div>
+            <div class="char-box" data-slot="5"><span class="char-box-char"></span></div>
+            <div class="char-box" data-slot="6"><span class="char-box-char"></span></div>
+            <div class="char-box" data-slot="7"><span class="char-box-char"></span></div>
+            <span class="separator" aria-hidden="true">—</span>
+            <div class="char-box" data-slot="8"><span class="char-box-char"></span></div>
+            <div class="char-box" data-slot="9"><span class="char-box-char"></span></div>
+            <div class="char-box" data-slot="10"><span class="char-box-char"></span></div>
+            <div class="char-box" data-slot="11"><span class="char-box-char"></span></div>
+          </div>
+
+          <div id="fieldShell" class="field-shell">
+            <input
+              id="codeInput"
+              class="field"
+              type="text"
+              inputmode="text"
+              autocomplete="off"
+              autocapitalize="off"
+              spellcheck="false"
+              autocorrect="off"
+              aria-describedby="status"
+              placeholder="XXXX-XXXX-XXXX"
+            />
+          </div>
         </div>
       </div>
 
@@ -195,95 +327,139 @@
       const submitBtn = document.getElementById('submitBtn');
       const statusEl = document.getElementById('status');
       const fieldShell = document.getElementById('fieldShell');
+      const boxStrip = document.getElementById('boxStrip');
+      const boxEls = Array.from(boxStrip.querySelectorAll('.char-box'));
 
-      // Source of truth: rawCode always stores user code without hyphens/spaces.
+      // state
       let rawCode = '';
       let isSubmitting = false;
 
+      // sanitize
       function sanitizeRaw(value) {
         return String(value || '').replace(/[-\s]/g, '').slice(0, MAX_LEN);
       }
 
-      function formatCode(raw) {
-        const first = raw.slice(0, 4);
-        const second = raw.slice(4, 8);
-        const third = raw.slice(8, 12);
-        return [first, second, third].filter(Boolean).join('-');
+      // render
+      function applyFieldState(nextRaw = rawCode) {
+        const length = nextRaw.length;
+        fieldShell.classList.toggle('complete', rawCode.length === MAX_LEN);
+        clearBtn.disabled = length === 0 || isSubmitting;
+        submitBtn.disabled = isSubmitting;
       }
 
-      function countRawBeforeCaret(text, caretPos) {
-        const left = text.slice(0, Math.max(0, caretPos));
-        return sanitizeRaw(left).length;
+      function render(raw) {
+        for (let i = 0; i < MAX_LEN; i += 1) {
+          const box = boxEls[i];
+          const charEl = box.querySelector('.char-box-char');
+          const char = raw[i] || '';
+          charEl.textContent = char;
+          box.classList.toggle('filled', Boolean(char));
+        }
+        applyFieldState(raw);
       }
 
-      function mapRawIndexToFormattedIndex(rawIndex, formattedValue) {
-        let seen = 0;
-        for (let i = 0; i < formattedValue.length; i += 1) {
-          if (formattedValue[i] !== '-') {
-            seen += 1;
-          }
-          if (seen === rawIndex) {
-            return i + 1;
+      // animateIn
+      function animateIn(slotIndex) {
+        const box = boxEls[slotIndex];
+        if (!box) return;
+        box.classList.remove('anim-in');
+        void box.offsetWidth;
+        box.classList.add('anim-in');
+      }
+
+      // animateOut
+      function animateOut(slotIndex, char, duration = 150) {
+        const box = boxEls[slotIndex];
+        if (!box) return;
+        const charEl = box.querySelector('.char-box-char');
+        charEl.textContent = char;
+        box.classList.add('filled');
+        box.classList.remove('anim-out');
+        void box.offsetWidth;
+        box.classList.add('anim-out');
+
+        window.setTimeout(() => {
+          if (rawCode[slotIndex]) return;
+          charEl.textContent = '';
+          box.classList.remove('filled', 'anim-out');
+        }, duration);
+      }
+
+      // completePulse
+      function completePulse() {
+        for (let i = MAX_LEN - 1; i >= 0; i -= 1) {
+          const box = boxEls[i];
+          if (!box.classList.contains('filled')) continue;
+          const delay = (MAX_LEN - 1 - i) * 36;
+          box.style.setProperty('--pulse-delay', `${delay}ms`);
+          box.classList.remove('pulse');
+          void box.offsetWidth;
+          box.classList.add('pulse');
+        }
+      }
+
+      function syncRaw(nextRaw, mode = 'instant', meta = {}) {
+        const prevRaw = rawCode;
+        rawCode = nextRaw;
+        render(rawCode);
+
+        if (mode === 'append' && typeof meta.index === 'number') {
+          animateIn(meta.index);
+        } else if (mode === 'delete' && typeof meta.index === 'number') {
+          animateOut(meta.index, meta.char || '');
+        } else if (mode === 'clear') {
+          for (let i = 0; i < prevRaw.length; i += 1) {
+            animateOut(i, prevRaw[i], 120);
           }
         }
-        return formattedValue.length;
-      }
 
-      function applyFieldState() {
-        fieldShell.classList.toggle('complete', rawCode.length === MAX_LEN);
-      }
-
-      function syncInputDisplay(nextRaw, rawCaret) {
-        rawCode = nextRaw;
-        const formatted = formatCode(rawCode);
-        codeInput.value = formatted;
-
-        const safeRawCaret = Math.min(Math.max(rawCaret, 0), rawCode.length);
-        const formattedCaret = mapRawIndexToFormattedIndex(safeRawCaret, formatted);
-
-        // Keep mobile typing stable by always resetting caret after formatting.
-        requestAnimationFrame(() => {
-          codeInput.setSelectionRange(formattedCaret, formattedCaret);
-        });
-
-        clearBtn.disabled = rawCode.length === 0 || isSubmitting;
-        submitBtn.disabled = isSubmitting;
-        applyFieldState();
+        if (prevRaw.length !== MAX_LEN && rawCode.length === MAX_LEN) {
+          completePulse();
+        }
       }
 
       codeInput.addEventListener('input', () => {
         if (isSubmitting) return;
 
         const domValue = codeInput.value;
-        const domCaret = codeInput.selectionStart ?? domValue.length;
         const nextRaw = sanitizeRaw(domValue);
-        const rawCaret = Math.min(countRawBeforeCaret(domValue, domCaret), nextRaw.length);
+        const prevRaw = rawCode;
+        const caretPos = codeInput.selectionStart ?? domValue.length;
+        const selectionEnd = codeInput.selectionEnd ?? caretPos;
+        const caretAtEnd = caretPos === domValue.length && selectionEnd === domValue.length;
 
-        syncInputDisplay(nextRaw, rawCaret);
+        if (nextRaw !== prevRaw && domValue !== nextRaw) {
+          const start = codeInput.selectionStart ?? nextRaw.length;
+          codeInput.value = nextRaw;
+          codeInput.setSelectionRange(Math.min(start, nextRaw.length), Math.min(start, nextRaw.length));
+        }
+
+        const appendedAtEnd =
+          nextRaw.length === prevRaw.length + 1 && nextRaw.startsWith(prevRaw) && caretAtEnd;
+        const deletedAtEnd =
+          nextRaw.length === prevRaw.length - 1 && prevRaw.startsWith(nextRaw) && caretAtEnd;
+
+        if (appendedAtEnd) {
+          syncRaw(nextRaw, 'append', { index: nextRaw.length - 1 });
+        } else if (deletedAtEnd) {
+          syncRaw(nextRaw, 'delete', { index: prevRaw.length - 1, char: prevRaw[prevRaw.length - 1] });
+        } else {
+          syncRaw(nextRaw, 'instant');
+        }
       });
 
-      codeInput.addEventListener('paste', (event) => {
-        if (isSubmitting) return;
-        event.preventDefault();
-
-        const pasted = event.clipboardData?.getData('text') || '';
-        const selectionStart = codeInput.selectionStart ?? 0;
-        const selectionEnd = codeInput.selectionEnd ?? selectionStart;
-        const formatted = codeInput.value;
-
-        const rawStart = countRawBeforeCaret(formatted, selectionStart);
-        const rawEnd = countRawBeforeCaret(formatted, selectionEnd);
-
-        const merged = `${rawCode.slice(0, rawStart)}${sanitizeRaw(pasted)}${rawCode.slice(rawEnd)}`.slice(0, MAX_LEN);
-        const nextCaret = Math.min(rawStart + sanitizeRaw(pasted).length, merged.length);
-
-        syncInputDisplay(merged, nextCaret);
+      codeInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          submitBtn.click();
+        }
       });
 
       clearBtn.addEventListener('click', () => {
         if (isSubmitting) return;
         statusEl.textContent = '';
-        syncInputDisplay('', 0);
+        codeInput.value = '';
+        syncRaw('', 'clear');
         codeInput.focus({ preventScroll: true });
       });
 
@@ -330,7 +506,7 @@
         }
       });
 
-      syncInputDisplay('', 0);
+      render('');
     </script>
   </body>
 </html>
