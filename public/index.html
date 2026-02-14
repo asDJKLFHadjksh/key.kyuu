@@ -125,13 +125,15 @@
         animation: boxOut 150ms cubic-bezier(0.4, 0, 1, 1) both;
       }
 
-      .char-box.pulse {
-        animation: rotatePulse 360ms cubic-bezier(0.36, 0, 0.22, 1) both;
+      .char-box.pulse,
+      .char-box.intro {
+        animation: rotatePulse 360ms ease-in-out both;
         animation-delay: var(--pulse-delay, 0ms);
       }
 
-      .char-box.pulse .char-box-char {
-        animation: counterPulse 360ms cubic-bezier(0.36, 0, 0.22, 1) both;
+      .char-box.pulse .char-box-char,
+      .char-box.intro .char-box-char {
+        animation: counterPulse 360ms ease-in-out both;
         animation-delay: var(--pulse-delay, 0ms);
       }
 
@@ -306,6 +308,7 @@
               autocapitalize="off"
               spellcheck="false"
               autocorrect="off"
+              maxlength="12"
               aria-describedby="status"
               placeholder="XXXX-XXXX-XXXX"
             />
@@ -333,6 +336,7 @@
       // state
       let rawCode = '';
       let isSubmitting = false;
+      let introRunning = true;
 
       // sanitize
       function sanitizeRaw(value) {
@@ -342,7 +346,7 @@
       // render
       function applyFieldState(nextRaw = rawCode) {
         const length = nextRaw.length;
-        fieldShell.classList.toggle('complete', rawCode.length === MAX_LEN);
+        fieldShell.classList.toggle('complete', length === MAX_LEN);
         clearBtn.disabled = length === 0 || isSubmitting;
         submitBtn.disabled = isSubmitting;
       }
@@ -398,6 +402,32 @@
         }
       }
 
+
+      function runIntroAnimation() {
+        const stagger = 60;
+        const pulseDuration = 360;
+
+        for (let i = MAX_LEN - 1; i >= 0; i -= 1) {
+          const box = boxEls[i];
+          const delay = (MAX_LEN - 1 - i) * stagger;
+          box.style.setProperty('--pulse-delay', `${delay}ms`);
+          box.classList.remove('intro');
+          void box.offsetWidth;
+          box.classList.add('intro');
+
+          window.setTimeout(() => {
+            box.classList.remove('intro');
+            box.style.removeProperty('--pulse-delay');
+          }, delay + pulseDuration);
+        }
+
+        window.setTimeout(() => {
+          introRunning = false;
+          codeInput.disabled = false;
+          applyFieldState(rawCode);
+        }, ((MAX_LEN - 1) * stagger) + pulseDuration + 20);
+      }
+
       function syncRaw(nextRaw, mode = 'instant', meta = {}) {
         const prevRaw = rawCode;
         rawCode = nextRaw;
@@ -418,17 +448,35 @@
         }
       }
 
+      codeInput.addEventListener('beforeinput', (event) => {
+        if (isSubmitting || introRunning) {
+          event.preventDefault();
+          return;
+        }
+
+        if ((event.inputType || '').startsWith('delete')) return;
+
+        const selectionStart = codeInput.selectionStart ?? codeInput.value.length;
+        const selectionEnd = codeInput.selectionEnd ?? selectionStart;
+        const currentRaw = sanitizeRaw(codeInput.value);
+        const selectedRaw = sanitizeRaw(codeInput.value.slice(selectionStart, selectionEnd));
+
+        if ((currentRaw.length - selectedRaw.length) >= MAX_LEN) {
+          event.preventDefault();
+        }
+      });
+
       codeInput.addEventListener('input', () => {
-        if (isSubmitting) return;
+        if (isSubmitting || introRunning) return;
 
         const domValue = codeInput.value;
-        const nextRaw = sanitizeRaw(domValue);
         const prevRaw = rawCode;
         const caretPos = codeInput.selectionStart ?? domValue.length;
         const selectionEnd = codeInput.selectionEnd ?? caretPos;
         const caretAtEnd = caretPos === domValue.length && selectionEnd === domValue.length;
 
-        if (nextRaw !== prevRaw && domValue !== nextRaw) {
+        const nextRaw = sanitizeRaw(domValue);
+        if (codeInput.value !== nextRaw) {
           const start = codeInput.selectionStart ?? nextRaw.length;
           codeInput.value = nextRaw;
           codeInput.setSelectionRange(Math.min(start, nextRaw.length), Math.min(start, nextRaw.length));
@@ -448,6 +496,12 @@
         }
       });
 
+
+      fieldShell.addEventListener('click', () => {
+        if (introRunning || isSubmitting) return;
+        codeInput.focus({ preventScroll: true });
+      });
+
       codeInput.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
           event.preventDefault();
@@ -456,7 +510,7 @@
       });
 
       clearBtn.addEventListener('click', () => {
-        if (isSubmitting) return;
+        if (isSubmitting || introRunning) return;
         statusEl.textContent = '';
         codeInput.value = '';
         syncRaw('', 'clear');
@@ -464,7 +518,7 @@
       });
 
       submitBtn.addEventListener('click', async () => {
-        if (isSubmitting) return;
+        if (isSubmitting || introRunning) return;
 
         if (rawCode.length !== MAX_LEN) {
           statusEl.textContent = 'Kode harus berisi tepat 12 karakter.';
@@ -506,7 +560,9 @@
         }
       });
 
+      codeInput.disabled = true;
       render('');
+      runIntroAnimation();
     </script>
   </body>
 </html>
