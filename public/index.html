@@ -68,24 +68,39 @@
         margin-bottom: 1rem;
       }
 
-      .grow-shell {
-        width: min(92vw, 460px);
-        display: flex;
-        justify-content: center;
+      .field-shell {
+        --p: 0.18;
+        width: min(92vw, 520px);
+        position: relative;
       }
 
-      .grow-track {
-        width: 100%;
-        transform-origin: center center;
-        will-change: transform, opacity;
-        transition: transform 220ms ease, opacity 220ms ease, filter 220ms ease;
-      }
-
-      .input-field {
-        width: 100%;
+      .field-ink {
+        position: absolute;
+        inset: 0;
         border: 1px solid rgba(255, 255, 255, 0.35);
         border-radius: 12px;
         background: #171717;
+        transform: scaleX(var(--p));
+        transform-origin: center center;
+        will-change: transform, opacity;
+        transition: transform 180ms ease, opacity 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+        opacity: 0.85;
+        pointer-events: none;
+      }
+
+      .field-shell.complete .field-ink {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 1px rgba(138, 78, 255, 0.25), 0 0 16px rgba(138, 78, 255, 0.24);
+        opacity: 1;
+      }
+
+      .field {
+        position: relative;
+        z-index: 1;
+        width: 100%;
+        border: none;
+        border-radius: 12px;
+        background: transparent;
         color: var(--fg);
         padding: 0.78rem 0.92rem;
         font-size: clamp(1rem, 2.8vw, 1.15rem);
@@ -94,14 +109,8 @@
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
       }
 
-      .input-field:focus {
+      .field:focus {
         outline: none;
-        border-color: rgba(138, 78, 255, 0.7);
-      }
-
-      .grow-track.complete .input-field {
-        border-color: var(--accent);
-        box-shadow: 0 0 0 1px rgba(138, 78, 255, 0.25), 0 0 16px rgba(138, 78, 255, 0.24);
       }
 
       .actions {
@@ -162,21 +171,20 @@
 
       <label for="codeInput" class="sr-only">Kode bandul 12 karakter</label>
       <div class="input-row">
-        <div class="grow-shell">
-          <div id="growTrack" class="grow-track">
-            <input
-              id="codeInput"
-              class="input-field"
-              type="text"
-              inputmode="text"
-              autocomplete="off"
-              autocapitalize="off"
-              spellcheck="false"
-              autocorrect="off"
-              placeholder="XXXX-XXXX-XXXX"
-              aria-describedby="status"
-            />
-          </div>
+        <div id="fieldShell" class="field-shell">
+          <div class="field-ink" aria-hidden="true"></div>
+          <input
+            id="codeInput"
+            class="field"
+            type="text"
+            inputmode="text"
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+            autocorrect="off"
+            placeholder="XXXX-XXXX-XXXX"
+            aria-describedby="status"
+          />
         </div>
       </div>
 
@@ -189,12 +197,12 @@
 
     <script>
       const MAX_LEN = 12;
-      const MIN_SCALE = 0.15;
+      const MIN_SCALE = 0.18;
       const codeInput = document.getElementById('codeInput');
       const clearBtn = document.getElementById('clearBtn');
       const submitBtn = document.getElementById('submitBtn');
       const statusEl = document.getElementById('status');
-      const growTrack = document.getElementById('growTrack');
+      const fieldShell = document.getElementById('fieldShell');
 
       // Source of truth: rawCode always stores user code without hyphens/spaces.
       let rawCode = '';
@@ -234,9 +242,8 @@
         const progress = Math.min(Math.max(lengthForProgress / MAX_LEN, 0), 1);
         const scale = MIN_SCALE + (1 - MIN_SCALE) * progress;
 
-        growTrack.style.transform = `scaleX(${scale})`;
-        growTrack.style.opacity = String(0.78 + progress * 0.22);
-        growTrack.classList.toggle('complete', rawCode.length === MAX_LEN);
+        fieldShell.style.setProperty('--p', String(scale));
+        fieldShell.classList.toggle('complete', rawCode.length === MAX_LEN);
       }
 
       function syncInputDisplay(nextRaw, rawCaret) {
