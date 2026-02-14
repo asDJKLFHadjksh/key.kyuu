@@ -69,29 +69,35 @@
       }
 
       .field-shell {
-        --p: 0.18;
-        width: min(92vw, 520px);
+        --len: 0;
+        width: clamp(4ch, calc(4ch + (var(--len) * 1.1ch)), 18ch);
         position: relative;
-      }
-
-      .field-ink {
-        position: absolute;
-        inset: 0;
+        margin: 0 auto;
+        transition: width 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
         border: 1px solid rgba(255, 255, 255, 0.35);
         border-radius: 12px;
         background: #171717;
-        transform: scaleX(var(--p));
-        transform-origin: center center;
-        will-change: transform, opacity;
-        transition: transform 180ms ease, opacity 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
-        opacity: 0.85;
-        pointer-events: none;
       }
 
-      .field-shell.complete .field-ink {
+      .field-shell.complete {
         border-color: var(--accent);
         box-shadow: 0 0 0 1px rgba(138, 78, 255, 0.25), 0 0 16px rgba(138, 78, 255, 0.24);
-        opacity: 1;
+      }
+
+      .field-icon {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        opacity: 0.55;
+        pointer-events: none;
+        transition: opacity 120ms ease;
+        font-size: 1rem;
+        line-height: 1;
+      }
+
+      .field-shell.has-value .field-icon {
+        opacity: 0;
       }
 
       .field {
@@ -172,7 +178,6 @@
       <label for="codeInput" class="sr-only">Kode bandul 12 karakter</label>
       <div class="input-row">
         <div id="fieldShell" class="field-shell">
-          <div class="field-ink" aria-hidden="true"></div>
           <input
             id="codeInput"
             class="field"
@@ -182,9 +187,9 @@
             autocapitalize="off"
             spellcheck="false"
             autocorrect="off"
-            placeholder="XXXX-XXXX-XXXX"
             aria-describedby="status"
           />
+          <span class="field-icon" aria-hidden="true">✎</span>
         </div>
       </div>
 
@@ -197,7 +202,6 @@
 
     <script>
       const MAX_LEN = 12;
-      const MIN_SCALE = 0.18;
       const codeInput = document.getElementById('codeInput');
       const clearBtn = document.getElementById('clearBtn');
       const submitBtn = document.getElementById('submitBtn');
@@ -238,11 +242,8 @@
       }
 
       function applyGrowState() {
-        const lengthForProgress = Math.max(rawCode.length, 1);
-        const progress = Math.min(Math.max(lengthForProgress / MAX_LEN, 0), 1);
-        const scale = MIN_SCALE + (1 - MIN_SCALE) * progress;
-
-        fieldShell.style.setProperty('--p', String(scale));
+        fieldShell.style.setProperty('--len', String(rawCode.length));
+        fieldShell.classList.toggle('has-value', rawCode.length > 0);
         fieldShell.classList.toggle('complete', rawCode.length === MAX_LEN);
       }
 
