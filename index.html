@@ -107,6 +107,13 @@
         transition: transform 180ms ease;
       }
 
+      .box,
+      .box span {
+        -webkit-font-smoothing: antialiased;
+        backface-visibility: hidden;
+        transform-style: preserve-3d;
+      }
+
       .box.hovered .box-inner,
       .box.active .box-inner {
         transform: rotate(-45deg);
@@ -272,6 +279,7 @@
       const boxes = [];
       const digitsEls = [];
       const separators = [];
+      const lastRendered = Array(MAX_DIGITS).fill(null);
 
       function createBoxes() {
         for (let i = 0; i < MAX_DIGITS; i += 1) {
@@ -313,6 +321,7 @@
             hoverIndex = null;
             caretIndex = i;
             focusInput();
+            syncHiddenInput(caretIndex);
             render();
           });
 
@@ -336,17 +345,26 @@
         hiddenInput.focus({ preventScroll: true });
       }
 
-      function syncHiddenInput() {
-        hiddenInput.value = code.join('');
-        hiddenInput.setSelectionRange(hiddenInput.value.length, hiddenInput.value.length);
+      function sanitizeValue(rawValue) {
+        return (rawValue || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, MAX_DIGITS);
       }
 
-      function applyFromRawInput(rawValue) {
+      function syncHiddenInput(position = caretIndex) {
+        hiddenInput.value = code.join('');
+        const clamped = Math.max(0, Math.min(position, hiddenInput.value.length));
+        hiddenInput.setSelectionRange(clamped, clamped);
+      }
+
+      function applyFromRawInput(rawValue, selectionPosition = null) {
         if (isVerifying) return;
-        const sanitized = (rawValue || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, MAX_DIGITS);
+        const raw = rawValue || '';
+        const sanitized = sanitizeValue(raw);
+        const cursor = selectionPosition ?? hiddenInput.selectionStart ?? raw.length;
+        const leftSanitizedLength = sanitizeValue(raw.slice(0, cursor)).length;
+
         code = Array.from({ length: MAX_DIGITS }, (_, index) => sanitized[index] || '');
-        caretIndex = Math.min(sanitized.length, MAX_DIGITS);
-        syncHiddenInput();
+        caretIndex = Math.min(leftSanitizedLength, sanitized.length, MAX_DIGITS);
+        syncHiddenInput(caretIndex);
         render();
       }
 
@@ -355,55 +373,11 @@
         return empty === -1 ? MAX_DIGITS : empty;
       }
 
-      function animateDigit(index, mode) {
-        const el = digitsEls[index];
-        el.classList.remove('anim-in', 'anim-out');
-        // force class re-apply without layout animation side effects
-        void el.offsetWidth;
-        el.classList.add(mode === 'in' ? 'anim-in' : 'anim-out');
-      }
-
-      // ---------- caret handling ----------
-      function moveCaretLeft() {
-        caretIndex = Math.max(0, caretIndex - 1);
-      }
-
-      function moveCaretRight() {
-        caretIndex = Math.min(MAX_DIGITS, caretIndex + 1);
-      }
-
-      function insertDigit(char) {
-        if (isVerifying || !/^[A-Z0-9]$/.test(char) || caretIndex >= MAX_DIGITS) return;
-        code[caretIndex] = char.toUpperCase();
-        animateDigit(caretIndex, 'in');
-        moveCaretRight();
-      }
-
-      function backspaceDigit() {
-        if (isVerifying) return;
-        if (caretIndex > 0 && code[caretIndex] === '') {
-          moveCaretLeft();
-        }
-        if (code[caretIndex] !== '') {
-          animateDigit(caretIndex, 'out');
-        } else if (caretIndex > 0 && code[caretIndex - 1] !== '') {
-          animateDigit(caretIndex - 1, 'out');
-          moveCaretLeft();
-        }
-        code[caretIndex] = '';
-      }
 
       // ---------- input handling ----------
-      function handleDigitsInput(digits) {
-        if (isVerifying) return;
-        for (const d of digits) {
-          if (caretIndex >= MAX_DIGITS) break;
-          insertDigit(d);
-        }
-      }
-
       hiddenInput.addEventListener('focus', () => {
         inputFocused = true;
+        syncHiddenInput(caretIndex);
         render();
       });
 
@@ -420,33 +394,23 @@
         }
         hasUserInteracted = true;
 
-        if (/^[a-zA-Z0-9]$/.test(event.key)) {
-          event.preventDefault();
-          insertDigit(event.key.toUpperCase());
-        } else if (event.key === 'Backspace') {
-          event.preventDefault();
-          backspaceDigit();
-        } else if (event.key === 'ArrowLeft') {
-          event.preventDefault();
-          moveCaretLeft();
-        } else if (event.key === 'ArrowRight') {
-          event.preventDefault();
-          moveCaretRight();
-        } else if (event.key === 'Home') {
-          event.preventDefault();
-          caretIndex = 0;
-        } else if (event.key === 'End') {
-          event.preventDefault();
-          caretIndex = nextEmptyIndex();
-        } else if (event.key === 'Enter') {
+        if (event.key === 'Enter') {
           event.preventDefault();
           verifyBtn.click();
-        } else if (event.key.length === 1) {
-          event.preventDefault();
+          return;
         }
 
-        syncHiddenInput();
-        render();
+        if (event.key.length === 1 && !/^[a-zA-Z0-9]$/.test(event.key)) {
+          event.preventDefault();
+          return;
+        }
+
+        if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+          requestAnimationFrame(() => {
+            caretIndex = Math.min(hiddenInput.selectionStart ?? 0, MAX_DIGITS);
+            render();
+          });
+        }
       });
 
       hiddenInput.addEventListener('beforeinput', (event) => {
@@ -457,9 +421,7 @@
 
         hasUserInteracted = true;
 
-        // Mobile-safe behavior: allow native text updates for valid chars,
-        // then normalize in the `input` event pipeline.
-        if (event.inputType === 'insertText' && !/^[a-zA-Z0-9]+$/.test(event.data || '')) {
+        if (event.inputType === 'insertText' && event.data && !/^[a-zA-Z0-9]+$/.test(event.data)) {
           event.preventDefault();
         }
       });
@@ -468,22 +430,17 @@
       hiddenInput.addEventListener('input', () => {
         if (isVerifying) return;
         hasUserInteracted = true;
-        applyFromRawInput(hiddenInput.value);
+        applyFromRawInput(hiddenInput.value, hiddenInput.selectionStart ?? caretIndex);
       });
 
       // ---------- paste sanitization ----------
-      hiddenInput.addEventListener('paste', (event) => {
-        event.preventDefault();
+      hiddenInput.addEventListener('paste', () => {
         if (isVerifying) return;
         hasUserInteracted = true;
 
-        const text = event.clipboardData?.getData('text') || '';
-        const sanitized = text.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, MAX_DIGITS);
-        handleDigitsInput(sanitized);
-
-        caretIndex = Math.min(nextEmptyIndex(), MAX_DIGITS);
-        syncHiddenInput();
-        render();
+        requestAnimationFrame(() => {
+          applyFromRawInput(hiddenInput.value, hiddenInput.selectionStart ?? caretIndex);
+        });
       });
 
       otpWrap.addEventListener('click', () => {
@@ -495,6 +452,7 @@
           caretIndex = nextEmptyIndex();
         }
         focusInput();
+        syncHiddenInput(caretIndex);
         render();
       });
 
@@ -532,7 +490,15 @@
       function render() {
         for (let i = 0; i < MAX_DIGITS; i += 1) {
           const value = code[i];
-          digitsEls[i].textContent = value;
+          if (lastRendered[i] !== value) {
+            const span = digitsEls[i];
+            span.textContent = '';
+            requestAnimationFrame(() => {
+              span.textContent = value;
+            });
+            lastRendered[i] = value;
+          }
+
           boxes[i].classList.toggle('empty', !value);
 
           const activeByCaret = hasUserInteracted && inputFocused && caretIndex === i;
