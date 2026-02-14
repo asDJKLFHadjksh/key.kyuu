@@ -50,8 +50,9 @@
 
       .field-shell {
         --len: 0;
+        --growth-per-side: 0.5ch;
         margin: 0 auto;
-        width: clamp(8ch, calc(6ch + (var(--len) * 1ch)), 26ch);
+        width: clamp(3ch, calc(3ch + (var(--len) * var(--growth-per-side) * 2)), 20ch);
         transition: width 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
         border: 1.5px solid rgba(255, 255, 255, 0.35);
         border-radius: 12px;
@@ -68,7 +69,7 @@
         width: 100%;
         border: 0;
         outline: 0;
-        padding: 0.85rem 1rem;
+        padding: 0.85rem 0.7rem;
         background: transparent;
         color: var(--fg);
         font-size: 1rem;
