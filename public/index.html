@@ -47,8 +47,8 @@
       let inputFocused = false;
       let isVerifying = false;
       let pingPongTimer = null;
-      let handledByBeforeInput = false;
       let isComposing = false;
+      let deleteHandledByBeforeInput = false;
 
       const boxes = [];
       const digitsEls = [];
@@ -120,14 +120,15 @@
 
       function clearCaptureInput() {
         hiddenInput.value = '';
+        try {
+          hiddenInput.setSelectionRange(0, 0);
+        } catch (_error) {
+          // Some mobile keyboards can throw here; ignore and keep input usable.
+        }
       }
 
-      function isPrintableChar(char) {
-        return !/[\u0000-\u001F\u007F]/.test(char);
-      }
-
-      function filterPrintable(text) {
-        return Array.from(text || '').filter(isPrintableChar).join('');
+      function sanitizeInputChars(text) {
+        return String(text ?? '').replace(/[\r\n\t]/g, '');
       }
 
       function clampCaret(index) {
@@ -135,12 +136,14 @@
       }
 
       function writeTextAtCaret(text) {
-        const printable = filterPrintable(text);
-        if (!printable) return;
+        const chars = sanitizeInputChars(text);
+        if (!chars) return;
 
-        code[caretIndex] = printable.slice(-1);
-        if (caretIndex < MAX_DIGITS - 1) {
-          caretIndex += 1;
+        for (const ch of chars) {
+          code[caretIndex] = ch;
+          if (caretIndex < MAX_DIGITS - 1) {
+            caretIndex += 1;
+          }
         }
       }
 
@@ -200,7 +203,7 @@
         if (isVerifying) return;
         hasUserInteracted = true;
         isComposing = false;
-        writeTextAtCaret(event.data || hiddenInput.value);
+        writeTextAtCaret(event.data || hiddenInput.value || event.target?.value || '');
         commitSlotState();
       });
 
@@ -267,23 +270,9 @@
           return;
         }
 
-        hasUserInteracted = true;
-        handledByBeforeInput = false;
-
-        if (isComposing) {
-          if (event.inputType.startsWith('insert')) {
-            event.preventDefault();
-          }
-          return;
-        }
-
-        if (event.inputType === 'insertText') {
-          return;
-        }
-
         if (event.inputType === 'deleteContentBackward') {
           event.preventDefault();
-          handledByBeforeInput = true;
+          deleteHandledByBeforeInput = true;
           clearAtBackspace();
           commitSlotState();
           return;
@@ -291,16 +280,9 @@
 
         if (event.inputType === 'deleteContentForward') {
           event.preventDefault();
-          handledByBeforeInput = true;
+          deleteHandledByBeforeInput = true;
           clearAtDelete();
           commitSlotState();
-          return;
-        }
-
-        if (event.inputType === 'insertFromPaste') {
-          event.preventDefault();
-          handledByBeforeInput = true;
-          clearCaptureInput();
         }
       });
 
@@ -310,13 +292,17 @@
           return;
         }
 
-        if (handledByBeforeInput) {
-          handledByBeforeInput = false;
-          clearCaptureInput();
+        hasUserInteracted = true;
+
+        if (isComposing) {
           return;
         }
 
-        hasUserInteracted = true;
+        if (deleteHandledByBeforeInput) {
+          deleteHandledByBeforeInput = false;
+          clearCaptureInput();
+          return;
+        }
 
         if (event.inputType === 'deleteContentBackward') {
           clearAtBackspace();
@@ -330,7 +316,7 @@
           return;
         }
 
-        writeTextAtCaret(hiddenInput.value);
+        writeTextAtCaret(event.data || hiddenInput.value || event.target?.value || '');
         commitSlotState();
       });
 
@@ -341,6 +327,10 @@
         hasUserInteracted = true;
         writeTextAtCaret(event.clipboardData?.getData('text') || '');
         commitSlotState();
+      });
+
+      otpWrap.addEventListener('pointerdown', () => {
+        focusInput();
       });
 
       otpWrap.addEventListener('click', () => {
@@ -354,6 +344,12 @@
         focusInput();
         render();
       });
+
+      document.addEventListener('keydown', () => {
+        if (document.activeElement !== hiddenInput) {
+          focusInput();
+        }
+      }, true);
 
       // ---------- warning animation ----------
       function runWarningAnimation() {
@@ -391,10 +387,7 @@
           const value = code[i];
           if (lastRendered[i] !== value) {
             const span = digitsEls[i];
-            span.textContent = '';
-            requestAnimationFrame(() => {
-              span.textContent = value;
-            });
+            span.textContent = value;
             lastRendered[i] = value;
           }
 
