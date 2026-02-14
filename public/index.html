@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Temukan Pemilik</title>
+    <link rel="stylesheet" href="/assets/theme.css" />
+    <link rel="stylesheet" href="/assets/otp.css" />
+  </head>
+  <body>
+    <section class="panel panel-wide">
+      <h1>Temukan Pemilik</h1>
+      <p class="subtitle">Masukkan kode unik 12 karakter yang terukir pada bandul untuk melihat profil pemilik terdaftar.</p>
+
+      <label for="otp-input" class="sr-only">Input kode 12 karakter</label>
+      <div id="otpWrap" class="otp-wrap" aria-label="Entri visual kode 12 karakter"></div>
+      <input
+        id="otp-input"
+        class="real-input"
+        type="text"
+        inputmode="text"
+        autocomplete="one-time-code"
+        autocapitalize="off"
+        spellcheck="false"
+        aria-describedby="status"
+      />
+
+      <div class="controls">
+        <button id="verifyBtn" type="button" class="btn-primary">Lihat Profil Pemilik</button>
+        <p id="status" class="status" aria-live="polite"></p>
+      </div>
+    </section>
+
+<script>
+      // ---------- init ----------
+      const MAX_DIGITS = 12;
+      const GROUP_SIZE = 4;
+      const otpWrap = document.getElementById('otpWrap');
+      const hiddenInput = document.getElementById('otp-input');
+      const verifyBtn = document.getElementById('verifyBtn');
+      const statusEl = document.getElementById('status');
+
+      let code = Array(MAX_DIGITS).fill('');
+      let caretIndex = 0;
+      let hoverIndex = null;
+      let hasUserInteracted = false;
+      let inputFocused = false;
+      let isVerifying = false;
+      let pingPongTimer = null;
+      let handledByBeforeInput = false;
+      let isComposing = false;
+
+      const boxes = [];
+      const digitsEls = [];
+      const separators = [];
+      const lastRendered = Array(MAX_DIGITS).fill(null);
+
+      function createBoxes() {
+        for (let i = 0; i < MAX_DIGITS; i += 1) {
+          const box = document.createElement('div');
+          box.className = 'box empty';
+          box.dataset.index = String(i);
+
+          const inner = document.createElement('div');
+          inner.className = 'box-inner';
+
+          const digit = document.createElement('span');
+          digit.className = 'digit';
+
+          inner.appendChild(digit);
+          box.appendChild(inner);
+          otpWrap.appendChild(box);
+
+          if ((i + 1) % GROUP_SIZE === 0 && i !== MAX_DIGITS - 1) {
+            const separator = document.createElement('span');
+            separator.className = 'separator';
+            separator.textContent = '-';
+            separator.setAttribute('aria-hidden', 'true');
+            otpWrap.appendChild(separator);
+            separators.push(separator);
+          }
+
+          box.addEventListener('mouseenter', () => {
+            hoverIndex = i;
+            render();
+          });
+          box.addEventListener('mouseleave', () => {
+            hoverIndex = null;
+            render();
+          });
+
+          box.addEventListener('click', (event) => {
+            event.stopPropagation();
+            hasUserInteracted = true;
+            hoverIndex = null;
+            caretIndex = i;
+            focusInput();
+            render();
+          });
+
+          boxes.push(box);
+          digitsEls.push(digit);
+        }
+      }
+
+      // ---------- intro animation ----------
+      function runIntroAnimation() {
+        const ordered = [...boxes].reverse();
+        ordered.forEach((box, idx) => {
+          setTimeout(() => {
+            box.classList.add('intro');
+            setTimeout(() => box.classList.remove('intro'), 320);
+          }, idx * 55);
+        });
+      }
+
+      function focusInput() {
+        hiddenInput.focus({ preventScroll: true });
+      }
+
+      function clearCaptureInput() {
+        hiddenInput.value = '';
+      }
+
+      function isPrintableChar(char) {
+        return !/[\u0000-\u001F\u007F]/.test(char);
+      }
+
+      function filterPrintable(text) {
+        return Array.from(text || '').filter(isPrintableChar).join('');
+      }
+
+      function clampCaret(index) {
+        return Math.max(0, Math.min(index, MAX_DIGITS - 1));
+      }
+
+      function writeTextAtCaret(text) {
+        const printable = filterPrintable(text);
+        if (!printable) return;
+
+        code[caretIndex] = printable.slice(-1);
+        if (caretIndex < MAX_DIGITS - 1) {
+          caretIndex += 1;
+        }
+      }
+
+      function clearAtBackspace() {
+        // If current slot has content, clear it first.
+        if (code[caretIndex]) {
+          code[caretIndex] = '';
+          return;
+        }
+
+        // Otherwise move left and clear.
+        if (caretIndex > 0) {
+          caretIndex -= 1;
+          code[caretIndex] = '';
+          return;
+        }
+
+        // caretIndex === 0 and slot already empty: keep as-is.
+        code[0] = '';
+      }
+
+      function clearAtDelete() {
+        code[caretIndex] = '';
+      }
+
+      function commitSlotState() {
+        clearCaptureInput();
+        render();
+      }
+
+      function nextEmptyIndex() {
+        const empty = code.findIndex((char) => char === '');
+        return empty === -1 ? MAX_DIGITS : empty;
+      }
+
+
+      // ---------- input handling ----------
+      hiddenInput.addEventListener('focus', () => {
+        inputFocused = true;
+        clearCaptureInput();
+        render();
+      });
+
+      hiddenInput.addEventListener('blur', () => {
+        inputFocused = false;
+        hoverIndex = null;
+        render();
+      });
+
+      hiddenInput.addEventListener('compositionstart', () => {
+        if (isVerifying) return;
+        isComposing = true;
+        hasUserInteracted = true;
+      });
+
+      hiddenInput.addEventListener('compositionend', (event) => {
+        if (isVerifying) return;
+        hasUserInteracted = true;
+        isComposing = false;
+        writeTextAtCaret(event.data || hiddenInput.value);
+        commitSlotState();
+      });
+
+      hiddenInput.addEventListener('keydown', (event) => {
+        if (isVerifying) {
+          event.preventDefault();
+          return;
+        }
+
+        hasUserInteracted = true;
+
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          verifyBtn.click();
+          return;
+        }
+
+        if (event.key === 'ArrowLeft') {
+          event.preventDefault();
+          caretIndex = clampCaret(caretIndex - 1);
+          render();
+          return;
+        }
+
+        if (event.key === 'ArrowRight') {
+          event.preventDefault();
+          caretIndex = clampCaret(caretIndex + 1);
+          render();
+          return;
+        }
+
+        if (event.key === 'Home') {
+          event.preventDefault();
+          caretIndex = 0;
+          render();
+          return;
+        }
+
+        if (event.key === 'End') {
+          event.preventDefault();
+          caretIndex = MAX_DIGITS - 1;
+          render();
+          return;
+        }
+
+        if (event.key === 'Backspace') {
+          event.preventDefault();
+          clearAtBackspace();
+          commitSlotState();
+          return;
+        }
+
+        if (event.key === 'Delete') {
+          event.preventDefault();
+          clearAtDelete();
+          commitSlotState();
+          return;
+        }
+      });
+
+      hiddenInput.addEventListener('beforeinput', (event) => {
+        if (isVerifying) {
+          event.preventDefault();
+          return;
+        }
+
+        hasUserInteracted = true;
+        handledByBeforeInput = false;
+
+        if (isComposing) {
+          if (event.inputType.startsWith('insert')) {
+            event.preventDefault();
+          }
+          return;
+        }
+
+        if (event.inputType === 'insertText') {
+          return;
+        }
+
+        if (event.inputType === 'deleteContentBackward') {
+          event.preventDefault();
+          handledByBeforeInput = true;
+          clearAtBackspace();
+          commitSlotState();
+          return;
+        }
+
+        if (event.inputType === 'deleteContentForward') {
+          event.preventDefault();
+          handledByBeforeInput = true;
+          clearAtDelete();
+          commitSlotState();
+          return;
+        }
+
+        if (event.inputType === 'insertFromPaste') {
+          event.preventDefault();
+          handledByBeforeInput = true;
+          clearCaptureInput();
+        }
+      });
+
+      hiddenInput.addEventListener('input', (event) => {
+        if (isVerifying) {
+          clearCaptureInput();
+          return;
+        }
+
+        if (handledByBeforeInput) {
+          handledByBeforeInput = false;
+          clearCaptureInput();
+          return;
+        }
+
+        hasUserInteracted = true;
+
+        if (event.inputType === 'deleteContentBackward') {
+          clearAtBackspace();
+          commitSlotState();
+          return;
+        }
+
+        if (event.inputType === 'deleteContentForward') {
+          clearAtDelete();
+          commitSlotState();
+          return;
+        }
+
+        writeTextAtCaret(hiddenInput.value);
+        commitSlotState();
+      });
+
+      // ---------- paste sanitization ----------
+      hiddenInput.addEventListener('paste', (event) => {
+        if (isVerifying) return;
+        event.preventDefault();
+        hasUserInteracted = true;
+        writeTextAtCaret(event.clipboardData?.getData('text') || '');
+        commitSlotState();
+      });
+
+      otpWrap.addEventListener('click', () => {
+        hasUserInteracted = true;
+        hoverIndex = null;
+        if (nextEmptyIndex() >= MAX_DIGITS) {
+          caretIndex = MAX_DIGITS - 1;
+        } else {
+          caretIndex = nextEmptyIndex();
+        }
+        focusInput();
+        render();
+      });
+
+      // ---------- warning animation ----------
+      function runWarningAnimation() {
+        boxes.forEach((box, i) => {
+          setTimeout(() => {
+            box.classList.add('warning');
+            setTimeout(() => box.classList.remove('warning'), 320);
+          }, i * 35);
+        });
+      }
+
+      // ---------- verifying loop ----------
+      function startVerifyingLoop() {
+        const seq = [
+          ...Array.from({ length: MAX_DIGITS }, (_, i) => i),
+          ...Array.from({ length: MAX_DIGITS }, (_, i) => MAX_DIGITS - 1 - i),
+        ];
+        let frame = 0;
+
+        pingPongTimer = setInterval(() => {
+          const active = seq[frame % seq.length];
+          boxes.forEach((box, idx) => box.classList.toggle('highlight', idx === active));
+          frame += 1;
+        }, 110);
+      }
+
+      function stopVerifyingLoop() {
+        clearInterval(pingPongTimer);
+        pingPongTimer = null;
+        boxes.forEach((box) => box.classList.remove('highlight'));
+      }
+
+      function render() {
+        for (let i = 0; i < MAX_DIGITS; i += 1) {
+          const value = code[i];
+          if (lastRendered[i] !== value) {
+            const span = digitsEls[i];
+            span.textContent = '';
+            requestAnimationFrame(() => {
+              span.textContent = value;
+            });
+            lastRendered[i] = value;
+          }
+
+          boxes[i].classList.toggle('empty', !value);
+
+          const activeByCaret = hasUserInteracted && inputFocused && caretIndex === i;
+          const activeByHover = hasUserInteracted && !inputFocused && hoverIndex === i;
+          const shouldActive = !isVerifying && (activeByCaret || activeByHover);
+          boxes[i].classList.toggle('active', shouldActive && activeByCaret);
+          boxes[i].classList.toggle('hovered', shouldActive && activeByHover);
+        }
+      }
+
+      function setInteractionDisabled(disabled) {
+        hiddenInput.disabled = disabled;
+        verifyBtn.disabled = disabled;
+      }
+
+      verifyBtn.addEventListener('click', async () => {
+        hasUserInteracted = true;
+        focusInput();
+
+        const entered = code.join('');
+        const isComplete = code.every((slot) => slot !== '');
+        if (!isComplete) {
+          statusEl.textContent = 'Masukkan 12 karakter terlebih dahulu.';
+          statusEl.className = 'status';
+          runWarningAnimation();
+          render();
+          return;
+        }
+
+        isVerifying = true;
+        setInteractionDisabled(true);
+        statusEl.textContent = 'Memverifikasi…';
+        statusEl.className = 'status verifying';
+        startVerifyingLoop();
+        render();
+
+        try {
+          const response = await fetch('/api/lookup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: entered }),
+          });
+
+          const payload = await response.json();
+
+          if (response.ok && payload.ok && payload.redirect) {
+            window.location.href = payload.redirect;
+            return;
+          }
+
+          if (response.status === 404 && payload.error === 'not_found') {
+            statusEl.textContent = 'Kode tidak ditemukan. Coba periksa lagi.';
+          } else if (response.status === 410 && payload.error === 'inactive') {
+            statusEl.textContent = 'Kode sedang dinonaktifkan.';
+          } else {
+            statusEl.textContent = 'Terjadi kesalahan. Silakan coba lagi.';
+          }
+        } catch (_error) {
+          statusEl.textContent = 'Gagal terhubung ke server. Coba lagi.';
+        } finally {
+          isVerifying = false;
+          setInteractionDisabled(false);
+          stopVerifyingLoop();
+          statusEl.className = 'status';
+          render();
+        }
+      });
+
+      createBoxes();
+      render();
+      runIntroAnimation();
+      clearCaptureInput();
+    </script>
+  </body>
+</html>
