@@ -321,7 +321,7 @@
             hoverIndex = null;
             caretIndex = i;
             focusInput();
-            syncHiddenInput(caretIndex);
+            syncHiddenInput();
             render();
           });
 
@@ -345,26 +345,40 @@
         hiddenInput.focus({ preventScroll: true });
       }
 
-      function sanitizeValue(rawValue) {
-        return (rawValue || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, MAX_DIGITS);
-      }
-
-      function syncHiddenInput(position = caretIndex) {
+      function syncHiddenInput() {
         hiddenInput.value = code.join('');
-        const clamped = Math.max(0, Math.min(position, hiddenInput.value.length));
-        hiddenInput.setSelectionRange(clamped, clamped);
       }
 
-      function applyFromRawInput(rawValue, selectionPosition = null) {
-        if (isVerifying) return;
-        const raw = rawValue || '';
-        const sanitized = sanitizeValue(raw);
-        const cursor = selectionPosition ?? hiddenInput.selectionStart ?? raw.length;
-        const leftSanitizedLength = sanitizeValue(raw.slice(0, cursor)).length;
+      function clampCaret(index) {
+        return Math.max(0, Math.min(index, MAX_DIGITS - 1));
+      }
 
-        code = Array.from({ length: MAX_DIGITS }, (_, index) => sanitized[index] || '');
-        caretIndex = Math.min(leftSanitizedLength, sanitized.length, MAX_DIGITS);
-        syncHiddenInput(caretIndex);
+
+      function writeCharsAtCaret(chars) {
+        const sanitized = (chars || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+        if (!sanitized) return;
+
+        for (const ch of sanitized) {
+          code[caretIndex] = ch;
+          if (caretIndex < MAX_DIGITS - 1) {
+            caretIndex += 1;
+          }
+        }
+      }
+
+      function clearAtBackspace() {
+        if (caretIndex > 0) {
+          caretIndex -= 1;
+        }
+        code[caretIndex] = '';
+      }
+
+      function clearAtDelete() {
+        code[caretIndex] = '';
+      }
+
+      function commitSlotState() {
+        syncHiddenInput();
         render();
       }
 
@@ -377,7 +391,7 @@
       // ---------- input handling ----------
       hiddenInput.addEventListener('focus', () => {
         inputFocused = true;
-        syncHiddenInput(caretIndex);
+        syncHiddenInput();
         render();
       });
 
@@ -392,6 +406,7 @@
           event.preventDefault();
           return;
         }
+
         hasUserInteracted = true;
 
         if (event.key === 'Enter') {
@@ -400,16 +415,43 @@
           return;
         }
 
-        if (event.key.length === 1 && !/^[a-zA-Z0-9]$/.test(event.key)) {
+        if (event.key === 'ArrowLeft') {
           event.preventDefault();
+          caretIndex = clampCaret(caretIndex - 1);
+          render();
           return;
         }
 
-        if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
-          requestAnimationFrame(() => {
-            caretIndex = Math.min(hiddenInput.selectionStart ?? 0, MAX_DIGITS);
-            render();
-          });
+        if (event.key === 'ArrowRight') {
+          event.preventDefault();
+          caretIndex = clampCaret(caretIndex + 1);
+          render();
+          return;
+        }
+
+        if (event.key === 'Home') {
+          event.preventDefault();
+          caretIndex = 0;
+          render();
+          return;
+        }
+
+        if (event.key === 'End') {
+          event.preventDefault();
+          caretIndex = MAX_DIGITS - 1;
+          render();
+          return;
+        }
+
+        if (event.key === 'Delete') {
+          event.preventDefault();
+          clearAtDelete();
+          commitSlotState();
+          return;
+        }
+
+        if (event.key.length === 1 && !/^[a-zA-Z0-9]$/.test(event.key)) {
+          event.preventDefault();
         }
       });
 
@@ -421,38 +463,59 @@
 
         hasUserInteracted = true;
 
-        if (event.inputType === 'insertText' && event.data && !/^[a-zA-Z0-9]+$/.test(event.data)) {
+        if (event.inputType === 'insertText') {
+          const data = event.data || '';
+          if (!/^[a-zA-Z0-9]+$/.test(data)) {
+            event.preventDefault();
+            return;
+          }
           event.preventDefault();
+          writeCharsAtCaret(data);
+          commitSlotState();
+          return;
+        }
+
+        if (event.inputType === 'deleteContentBackward') {
+          event.preventDefault();
+          clearAtBackspace();
+          commitSlotState();
+          return;
+        }
+
+        if (event.inputType === 'deleteContentForward') {
+          event.preventDefault();
+          clearAtDelete();
+          commitSlotState();
+          return;
         }
       });
 
-      // Mobile fallback: some virtual keyboards bypass keydown/beforeinput consistency.
       hiddenInput.addEventListener('input', () => {
-        if (isVerifying) return;
-        hasUserInteracted = true;
-        applyFromRawInput(hiddenInput.value, hiddenInput.selectionStart ?? caretIndex);
+        // Keep hidden input mirrored to slot state; visual state is slot-driven.
+        syncHiddenInput();
       });
 
       // ---------- paste sanitization ----------
-      hiddenInput.addEventListener('paste', () => {
+      hiddenInput.addEventListener('paste', (event) => {
         if (isVerifying) return;
+        event.preventDefault();
         hasUserInteracted = true;
 
-        requestAnimationFrame(() => {
-          applyFromRawInput(hiddenInput.value, hiddenInput.selectionStart ?? caretIndex);
-        });
+        const text = event.clipboardData?.getData('text') || '';
+        writeCharsAtCaret(text);
+        commitSlotState();
       });
 
       otpWrap.addEventListener('click', () => {
         hasUserInteracted = true;
         hoverIndex = null;
         if (nextEmptyIndex() >= MAX_DIGITS) {
-          caretIndex = MAX_DIGITS;
+          caretIndex = MAX_DIGITS - 1;
         } else {
           caretIndex = nextEmptyIndex();
         }
         focusInput();
-        syncHiddenInput(caretIndex);
+        syncHiddenInput();
         render();
       });
 
@@ -514,7 +577,8 @@
         focusInput();
 
         const entered = code.join('');
-        if (entered.length < MAX_DIGITS) {
+        const isComplete = code.every((slot) => slot !== '');
+        if (!isComplete) {
           statusEl.textContent = 'Please enter all 12 characters.';
           statusEl.className = 'status';
           runWarningAnimation();
