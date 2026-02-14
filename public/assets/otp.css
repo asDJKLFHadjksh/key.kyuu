@@ -1,0 +1,155 @@
+.otp-wrap {
+  position: relative;
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: center;
+  gap: clamp(0.1rem, 0.8vw, 0.5rem);
+  margin: 0 auto;
+  padding: 0.35rem;
+  width: 100%;
+  max-width: 100%;
+  cursor: text;
+}
+
+.separator {
+  width: clamp(8px, 1.8vw, 12px);
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.72);
+  font-weight: 600;
+  transform: translateY(-1px);
+  user-select: none;
+}
+
+.box {
+  --box-size: clamp(16px, 5.1vw, 48px);
+  flex: 0 0 var(--box-size);
+  width: var(--box-size);
+  height: var(--box-size);
+  border-radius: clamp(4px, 0.7vw, 10px);
+  border: 1.5px solid rgba(255, 255, 255, 0.42);
+  display: grid;
+  place-items: center;
+  transform: rotate(0deg) scale(1);
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease,
+    opacity 180ms ease;
+  will-change: transform, opacity;
+}
+
+.box.empty {
+  border-color: rgba(255, 255, 255, 0.26);
+}
+
+.box.hovered,
+.box.active {
+  transform: rotate(45deg);
+  border-color: var(--accent);
+}
+
+.box.highlight {
+  box-shadow: 0 0 0.6rem rgba(138, 78, 255, 0.7);
+  border-color: var(--accent);
+  transform: rotate(0deg) scale(1.06);
+}
+
+.box-inner {
+  transform: rotate(0deg);
+  transition: transform 180ms ease;
+}
+
+.box,
+.box span {
+  -webkit-font-smoothing: antialiased;
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
+}
+
+.box.hovered .box-inner,
+.box.active .box-inner {
+  transform: rotate(-45deg);
+}
+
+.digit {
+  font-size: clamp(0.68rem, 2.5vw, 1.25rem);
+  font-weight: 600;
+  line-height: 1;
+  opacity: 1;
+  transform: scale(1);
+}
+
+.digit.anim-in {
+  animation: digitIn 170ms ease forwards;
+}
+
+.digit.anim-out {
+  animation: digitOut 170ms ease forwards;
+}
+
+@keyframes digitIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes digitOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+@keyframes rotatePulse {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  50% {
+    transform: rotate(44deg);
+  }
+
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+.box.intro,
+.box.warning {
+  animation: rotatePulse 300ms ease-in-out;
+}
+
+.controls {
+  margin-top: 1.35rem;
+  display: grid;
+  gap: 0.75rem;
+  justify-items: center;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.real-input {
+  position: absolute;
+  opacity: 0;
+  width: 2px;
+  height: 2px;
+  left: -9999px;
+}
