@@ -266,7 +266,7 @@
 
       hiddenInput.addEventListener('input', (event) => {
         if (isVerifying) {
-          clearCaptureInput();
+          event.preventDefault();
           return;
         }
 
@@ -387,10 +387,7 @@
           const value = code[i];
           if (lastRendered[i] !== value) {
             const span = digitsEls[i];
-            span.textContent = '';
-            requestAnimationFrame(() => {
-              span.textContent = value;
-            });
+            span.textContent = value;
             lastRendered[i] = value;
           }
 
