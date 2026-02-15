@@ -363,7 +363,6 @@
       let prevRaw = '';
       let isVerifying = false;
       let introRunning = true;
-      let isClearing = false;
       let verifyingInterval = null;
       const pendingTimeouts = new Set();
 
@@ -407,9 +406,9 @@
       function applyFieldState(nextRaw = rawCode) {
         const length = nextRaw.length;
         fieldShell.classList.toggle('complete', length === MAX_LEN && !fieldShell.classList.contains('error'));
-        codeInput.disabled = isVerifying || introRunning || isClearing;
-        clearBtn.disabled = length === 0 || isVerifying || introRunning || isClearing;
-        submitBtn.disabled = isVerifying || introRunning || isClearing;
+        codeInput.disabled = isVerifying || introRunning;
+        clearBtn.disabled = length === 0 || isVerifying || introRunning;
+        submitBtn.disabled = isVerifying || introRunning;
       }
 
       function instantRender(raw = rawCode) {
@@ -509,6 +508,8 @@
           window.clearInterval(verifyingInterval);
           verifyingInterval = null;
         }
+        clearPendingTimeouts();
+        isVerifying = false;
       }
 
       function resetInteractionState() {
@@ -558,19 +559,13 @@
         }
       }
 
-      async function clearFromEndToStart() {
-        const snapshot = rawCode;
+      async function clearFromEndToStart(snapshot = rawCode) {
         if (!snapshot.length) return;
-
-        isClearing = true;
-        applyFieldState(snapshot);
 
         const tasks = [];
         for (let i = snapshot.length - 1; i >= 0; i -= 1) {
           tasks.push(new Promise((resolve) => {
             scheduleTimeout(async () => {
-              rawCode = rawCode.slice(0, i);
-              prevRaw = rawCode;
               await animateOut(i, snapshot[i]);
               resolve();
             }, (snapshot.length - 1 - i) * CLEAR_STAGGER_MS);
@@ -578,8 +573,6 @@
         }
 
         await Promise.all(tasks);
-        rawCode = '';
-        isClearing = false;
       }
 
       async function runInvalidPingpongOnce() {
@@ -607,7 +600,7 @@
       }
 
       codeInput.addEventListener('input', () => {
-        if (introRunning || isClearing) return;
+        if (introRunning) return;
 
         if (fieldShell.classList.contains('error') && codeInput.value.length > 0) {
           removeErrorStyles();
@@ -658,24 +651,30 @@
       });
 
       clearBtn.addEventListener('click', () => {
-        if (introRunning || isClearing) return;
-        stopVerifying();
-        clearPendingTimeouts();
-        statusEl.textContent = '';
-        removeErrorStyles();
+        if (introRunning) return;
+        const snapshot = rawCode;
 
-        (async () => {
-          await clearFromEndToStart();
-          codeInput.value = '';
-          prevRaw = '';
-          resetInteractionState();
-          instantRender('');
-          codeInput.focus({ preventScroll: true });
-        })();
+        stopVerifying();
+        statusEl.textContent = '';
+
+        codeInput.disabled = false;
+        submitBtn.disabled = false;
+        fieldShell.classList.remove('verifying', 'error', 'complete');
+        boxEls.forEach((box) => {
+          box.classList.remove('error', 'verifying-active');
+          clearTransientBoxClasses(box);
+        });
+        codeInput.value = '';
+        rawCode = '';
+        prevRaw = '';
+        instantRender('');
+        codeInput.focus({ preventScroll: true });
+
+        clearFromEndToStart(snapshot);
       });
 
       submitBtn.addEventListener('click', async () => {
-        if (isVerifying || introRunning || isClearing) return;
+        if (isVerifying || introRunning) return;
 
         if (rawCode.length < MAX_LEN) {
           statusEl.textContent = 'Kode belum lengkap. Pastikan 12 karakter ya.';
@@ -686,7 +685,6 @@
         console.log('[verify] start');
         isVerifying = true;
         stopVerifying();
-        clearPendingTimeouts();
         statusEl.textContent = 'Memproses pencarian...';
         applyFieldState(rawCode);
         startVerifying();
